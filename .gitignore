@@ -4,7 +4,6 @@ data/*.json
 !data/*.example.json
 
 node_modules/
-functions/node_modules/
 *.log
 .DS_Store
 Thumbs.db
@@ -15,3 +14,6 @@ firebase-debug.log
 firestore-debug.log
 ui-debug.log
 pglite-debug.log
+
+# Cloudflare Wrangler (si tu déploies le Worker en ligne de commande)
+.wrangler/

@@ -1,19 +1,14 @@
 rules_version = '2';
 
-// Chaque utilisateur ne voit que ses propres données (users/{uid}/...).
-// Toutes les écritures passent par les Cloud Functions (SDK Admin, qui
-// ignore ces règles) : le client ne fait jamais de calcul de valorisation
-// lui-même, il lit seulement ce que le serveur a produit.
+// Chaque utilisateur lit et écrit uniquement ses propres données
+// (users/{uid}/...). La valorisation est calculée dans le navigateur
+// (pas de Cloud Function, pour rester sur le forfait gratuit Firebase),
+// donc le client écrit directement son portefeuille et son historique —
+// mais jamais ceux d'un autre compte.
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{uid} {
-      allow read: if request.auth != null && request.auth.uid == uid;
-      allow write: if false;
-
-      match /{document=**} {
-        allow read: if request.auth != null && request.auth.uid == uid;
-        allow write: if false;
-      }
+    match /users/{uid}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
     }
   }
 }

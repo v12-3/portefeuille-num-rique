@@ -1,154 +1,170 @@
-# Patrimoine sur Firebase — configuration
+# Patrimoine — publier gratuitement (sans carte bancaire)
 
-Ce document couvre la version « vraie app » : compte Firebase Auth, données
-Firestore synchronisées en temps réel, cotations calculées par des Cloud
-Functions. Elle remplace le serveur local (`server.js`, données dans
-`data/*.json`) qui restait mono-machine et exigeait de laisser ton PC allumé
-avec un jeton pour y accéder depuis le téléphone.
+Guide clic-par-clic pour mettre l'app en ligne pour la famille, **100 %
+gratuit, sans jamais entrer de carte**.
 
-## Ce qui a été construit
+Deux services gratuits, deux comptes à créer :
 
-```
-firebase.json              config Hosting + Firestore + Functions + émulateurs
-firestore.rules            chaque utilisateur ne lit QUE users/{son-uid}/…
-firestore.indexes.json
-functions/
-  package.json
-  index.js                 4 Cloud Functions (voir plus bas)
-  lib/{csv,xlsx,util,importer,quotes,portfolio}.js
-                            portage quasi verbatim de lib/*.js — mêmes
-                            parseurs, même logique de cotation/valorisation,
-                            testés hors-ligne (voir « Ce qui n'est pas testé »)
-public/
-  firebase-config.js        ⚠️ à remplir — clés publiques de ton appli Web
-  firebase-client.js        auth + écoute Firestore + appel des Functions
-  index.html, m/*           rewiring : /api/* remplacé par Firebase partout
-```
+| Service | Rôle | Gratuit ? |
+|---|---|---|
+| **Firebase** (forfait Spark) | Connexion des comptes + base de données + hébergement du site | Oui, à vie, sans carte |
+| **Cloudflare Workers** | Récupère les cotations de bourse (un navigateur ne peut pas appeler Yahoo directement) | Oui, 100 000 requêtes/jour, sans carte |
 
-**Schéma Firestore** (par utilisateur, `users/{uid}/…`) :
+> Pourquoi deux services ? Les Cloud Functions de Firebase — qui feraient
+> tout côté serveur — exigent une carte bancaire. On les remplace donc par :
+> le calcul dans le navigateur (déjà codé, `public/app-core.js`) + un mini
+> service Cloudflare pour les cotations. Résultat : zéro carte.
 
-| Chemin | Contenu |
-|---|---|
-| `portfolio/main` | positions, opérations, soldes, liquidités — équivalent de l'ancien `portfolio.json` |
-| `portfolio/snapshot` | dernière valorisation calculée (le client la lit directement, temps réel) |
-| `portfolio/symbolCache` | cache ISIN/ticker → symbole résolu |
-| `history/{yyyy-mm-dd}` | un point par jour |
+---
 
-**Cloud Functions** (`onCall`, authentification requise) :
+## Partie A — Cloudflare Worker (les cotations)
 
-| Function | Rôle |
-|---|---|
-| `importFile` | reçoit un CSV/XLSX en base64, parse, fusionne, revalorise |
-| `refreshPerf` | revalorise avec cotations fraîches |
-| `updateBalance` | solde d'un livret |
-| `pinSymbol` | fige/débranche la cotation d'une ligne |
+### A1. Créer un compte Cloudflare
 
-Le client ne fait jamais de calcul de valorisation lui-même : il lit
-`portfolio/snapshot` et `history/*` par abonnement Firestore temps réel
-(`onSnapshot`), et n'appelle les Functions que pour les écritures qui
-exigent la logique métier serveur. Les règles Firestore (`firestore.rules`)
-interdisent toute écriture directe depuis le client — seul le SDK Admin
-(dans les Functions) peut écrire, elles ne sont donc jamais contournables
-depuis le navigateur.
+Va sur **https://dash.cloudflare.com/sign-up** → crée un compte (e-mail +
+mot de passe). Gratuit, aucune carte demandée.
 
-## À faire de ton côté (obligatoire)
+### A2. Créer le Worker
 
-Je ne peux pas me connecter à ton compte Google ni deviner l'ID du projet
-que tu as créé — ces étapes sont pour toi.
+1. Dans le tableau de bord Cloudflare, menu de gauche → **Workers & Pages**.
+2. Bouton **Create application** → onglet **Create Worker**.
+3. Donne-lui un nom, par ex. `patrimoine-cotations` → **Deploy** (il déploie
+   un exemple par défaut, on va le remplacer).
+4. Une fois déployé → bouton **Edit code** (ou **Continue to project** →
+   **Edit code**).
+5. Efface tout le code affiché, puis colle **l'intégralité** du fichier
+   [worker/quotes-worker.js](worker/quotes-worker.js) de ce dépôt.
+6. Bouton **Deploy** (en haut à droite).
 
-### 1. Connecter le CLI
+### A3. Noter l'URL
+
+En haut de la page du Worker, tu vois son adresse, du genre
+`https://patrimoine-cotations.TON-COMPTE.workers.dev`.
+**Copie-la** — tu en as besoin à l'étape B7.
+
+---
+
+## Partie B — Firebase (comptes, base, site)
+
+### B1. Installer l'outil (une seule fois)
+
+Déjà fait sur cette machine (`firebase --version` répond). Sinon :
+`npm install -g firebase-tools`.
+
+### B2. Se connecter
 
 ```bash
 firebase login
 ```
 
-### 2. Lier ce dossier à ton projet
+Ça ouvre le navigateur → connecte-toi avec ton compte Google.
 
-Console Firebase → ⚙️ *Paramètres du projet* → *Général* → copie l'**ID du
-projet**, puis :
+### B3. Lier ce dossier à ton projet Firebase
+
+Tu as dit avoir déjà créé le projet dans la console. Récupère son **ID** :
+Console Firebase (**https://console.firebase.google.com**) → ton projet →
+⚙️ *Paramètres du projet* → *Général* → **ID du projet**. Puis :
 
 ```bash
 firebase use --add
 ```
 
-Choisis ton projet dans la liste (ou édite `.firebaserc` toi-même, en
-remplaçant `REMPLACE-PAR-TON-PROJECT-ID`).
+Choisis ton projet dans la liste. (Ça remplit `.firebaserc`. Tu peux aussi
+éditer `.firebaserc` à la main et remplacer `REMPLACE-PAR-TON-PROJECT-ID`.)
 
-### 3. Passer au forfait Blaze (paiement à l'usage)
+**Pas besoin du forfait Blaze.** On ne déploie aucune Cloud Function, le
+forfait gratuit Spark suffit. Ne mets pas de carte.
 
-**Décision qui t'appartient — je ne peux pas la prendre à ta place.**
-Console Firebase → en bas à gauche → *Mettre à niveau* → *Blaze*.
+### B4. Activer les méthodes de connexion
 
-Nécessaire car les Cloud Functions doivent appeler Yahoo Finance / Stooq
-(requêtes sortantes), ce que le forfait gratuit Spark interdit purement et
-simplement. Le forfait Blaze garde les mêmes quotas gratuits que Spark et ne
-facture qu'au-delà (2 millions d'appels de Function/mois, 50k lectures
-Firestore/jour, etc.) — pour un usage personnel comme celui-ci, la facture
-attendue est 0 €, mais une carte doit être enregistrée.
+Console Firebase → **Authentication** → si demandé, *Get started* →
+onglet **Sign-in method** → active :
+- **E-mail/Mot de passe** (clique dessus → *Enable* → *Save*),
+- **Google** (clique dessus → *Enable* → choisis un e-mail d'assistance →
+  *Save*).
 
-### 4. Activer les méthodes de connexion
+### B5. Créer la base Firestore
 
-Console Firebase → *Authentication* → *Sign-in method* → active
-**E-mail/mot de passe** et **Google** (les deux sont déjà câblés côté code).
+Console Firebase → **Firestore Database** → *Create database* →
+**Start in production mode** → région **eur3 (europe-west)** → *Enable*.
 
-### 5. Créer la base Firestore
+(Les règles de sécurité de ce dépôt seront déployées à l'étape B8, elles
+verrouillent chaque compte à ses propres données.)
 
-Console Firebase → *Firestore Database* → *Créer une base* → mode
-production → région `eur3` (Europe) recommandée.
+### B6. Récupérer la config de l'appli Web
 
-### 6. Récupérer la config de l'appli Web
+Console Firebase → ⚙️ *Paramètres du projet* → *Général* → descends jusqu'à
+**Vos applications**. Si aucune appli Web (icône `</>`), clique l'icône
+`</>`, donne un surnom, **ne coche PAS** « Firebase Hosting » ici → *Enregistrer*.
+Firebase affiche un bloc `const firebaseConfig = { ... }`. **Copie l'objet.**
 
-Console Firebase → ⚙️ *Paramètres du projet* → onglet *Général* → section
-*Vos applications* → ajoute une appli **Web** (icône `</>`) si tu n'en as
-pas encore, donne-lui un nom, **ne coche pas** Firebase Hosting à cette
-étape (déjà configuré). Copie l'objet `firebaseConfig` affiché et colle-le
-dans [public/firebase-config.js](public/firebase-config.js) à la place des
-valeurs `REMPLACE-MOI`.
+### B7. Coller les deux configs
 
-### 7. Déployer
+Ouvre [public/firebase-config.js](public/firebase-config.js) et remplace :
+- l'objet `window.FIREBASE_CONFIG = {...}` par celui copié en B6 ;
+- `window.QUOTES_WORKER_URL = "";` par l'URL du Worker copiée en A3, par ex.
+  `window.QUOTES_WORKER_URL = "https://patrimoine-cotations.ton-compte.workers.dev";`
+
+### B8. Déployer le site + les règles
 
 ```bash
-cd functions && npm install && cd ..
-firebase deploy
+firebase deploy --only hosting,firestore
 ```
 
-Ça déploie Hosting, les 4 Cloud Functions et les règles Firestore en une
-fois. L'URL finale est affichée à la fin (`https://<ton-projet>.web.app`).
+À la fin, Firebase affiche l'URL du site :
+`https://TON-PROJET.web.app`.
 
-### 8. Tester
+---
 
-Ouvre l'URL affichée, crée un compte, importe un fichier CSV/XLSX pour
-vérifier que tout remonte. Sur le téléphone : ouvre la même URL + `/m/`
-dans Chrome, puis « Ajouter à l'écran d'accueil » — plus besoin de jeton
-LAN ni de laisser ton PC allumé, ça marche depuis n'importe quel réseau.
+## Partie C — Utiliser
 
-## Ce qui n'est pas testé
+1. Ouvre `https://TON-PROJET.web.app` → crée ton compte (e-mail + mot de
+   passe, ou Google).
+2. Importe un fichier CSV/XLSX pour vérifier que le portefeuille remonte et
+   que les cotations s'affichent.
+3. **Sur le téléphone** : ouvre `https://TON-PROJET.web.app/m/` dans Chrome →
+   menu ⋮ → *Ajouter à l'écran d'accueil*. L'app s'installe, plein écran,
+   avec son icône. Marche depuis n'importe quel réseau, PC éteint.
+4. **Pour la famille** : partage juste l'URL. Chacun crée son compte, chacun
+   a son propre portefeuille (les données ne se mélangent pas).
 
-Je n'ai ni tes identifiants Firebase ni Java installé sur cette machine
-(requis par les émulateurs Firestore/Auth), donc :
+---
 
-- **Testé** : les parseurs CSV/XLSX, la résolution de cotations Yahoo/Stooq
-  et le calcul de valorisation (`functions/lib/*.js`) fonctionnent
-  correctement — vérifié avec des données en mémoire, hors Firestore.
-- **Testé** : les deux clients (dashboard et mobile) affichent bien l'écran
-  de connexion et gèrent proprement une config Firebase absente/invalide
-  (message d'erreur clair au lieu d'un écran de chargement infini).
-- **Non testé** : le trajet complet Cloud Function ↔ Firestore ↔ client en
-  conditions réelles (règles de sécurité, permissions, `onSnapshot` avec de
-  vraies données). Ce sera le premier vrai test, à l'étape 8 ci-dessus.
+## Ce qui a été testé / pas testé
 
-Si `firebase deploy` échoue ou qu'une Function renvoie une erreur, colle-moi
-le message — la logique métier est déjà validée, ce sera très probablement
-une histoire de règles Firestore ou de configuration.
+- **Testé** (sur cette machine, hors Firebase) : parsing CSV et XLSX dans le
+  navigateur (décompression via `DecompressionStream`), calcul de
+  valorisation, et le Worker de cotations (résolution de symbole + Yahoo/Stooq
+  répondent correctement).
+- **Testé** : les deux apps (dashboard et mobile) affichent l'écran de
+  connexion et réagissent proprement à une config absente (message clair).
+- **Non testé** : le trajet complet navigateur ↔ Firestore ↔ Worker en
+  conditions réelles (il me faut ton projet Firebase et ton Worker en ligne).
+  C'est ce que tu valides à la Partie C.
 
-## Et le serveur local (`server.js`) ?
+Si `firebase deploy` échoue ou qu'une cotation ne remonte pas, colle-moi le
+message d'erreur (console du navigateur : F12 → onglet *Console*) — la
+logique est déjà validée, ce sera très probablement une règle Firestore, une
+méthode de connexion oubliée (B4) ou l'URL du Worker (B7).
 
-Toujours là, mais **plus utilisé par le client** : `public/index.html` et
-`public/m/index.html` chargent maintenant `firebase-client.js` et ne parlent
-plus aux routes `/api/*`. Lancer `node server.js` sert les fichiers
-statiques mais affiche l'écran de connexion Firebase (pas les anciennes
-données de `data/portfolio.json`). Gardé comme référence et pour un usage
-de secours ; supprimable une fois la version Firebase confirmée en place.
-Pour du développement local avec Firebase, préfère les émulateurs
-(`firebase emulators:start`, déjà configurés dans `firebase.json`) — ils
-nécessitent Java pour Firestore/Auth.
+---
+
+## Coûts — vraiment gratuit ?
+
+Oui, pour un usage familial :
+- **Firebase Spark** : gratuit à vie, sans carte. Quotas largement
+  au-dessus d'un usage famille (50 000 lectures / 20 000 écritures Firestore
+  par jour, 10 Go d'hébergement).
+- **Cloudflare Workers** : 100 000 requêtes/jour gratuites, sans carte. Une
+  actualisation de cotations = quelques requêtes.
+
+Aucune carte n'est demandée nulle part dans ce guide. Si un écran te réclame
+une carte, c'est que tu es sur une option payante (forfait Blaze de Firebase,
+ou un plan Cloudflare payant) — reviens en arrière, tu n'en as pas besoin.
+
+## Développement local
+
+`node server.js` sert encore les fichiers en local, mais les clients parlent
+maintenant à Firebase : tu verras l'écran de connexion. Pour tester la logique
+sans déployer, les émulateurs Firebase (`firebase emulators:start`) sont
+configurés dans `firebase.json` — ils demandent Java (absent de cette machine).
