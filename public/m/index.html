@@ -210,6 +210,35 @@ const state = {
 };
 let snap = null;
 let conn = { status:'connecting', at:null, error:null };
+let geoHeight = 720;
+
+/* La carte d'exposition remonte sa hauteur réelle : on redimensionne l'iframe
+   sans re-render, sinon elle se rechargerait à chaque message. */
+function setGeoHeight(h){
+  const frame = document.getElementById('geo');
+  if (!frame || !(h > 200)) return;
+  geoHeight = h + 4;
+  frame.style.height = geoHeight + 'px';
+}
+
+window.addEventListener('message', e => {
+  const frame = document.getElementById('geo');
+  if (!frame || e.origin !== location.origin || e.source !== frame.contentWindow) return;
+  if (e.data?.type === 'worldExposureHeight') setGeoHeight(e.data.height);
+});
+
+/* Filet de sécurité : l'iframe est de même origine, on mesure nous-mêmes son
+   contenu. Couvre le cas où ses messages n'arrivent pas (page non composée). */
+function observeGeo(frame){
+  const attach = () => {
+    const doc = frame.contentDocument;
+    if (!doc?.body) return;
+    setGeoHeight(doc.body.scrollHeight);
+    new ResizeObserver(() => setGeoHeight(doc.body.scrollHeight)).observe(doc.body);
+  };
+  frame.addEventListener('load', attach);
+  attach();
+}
 
 function set(patch){
   let changed = false;
@@ -584,8 +613,18 @@ function modeRepartition(){
   const scopes = ['Tout','PEA','Assurance Vie'];
   const segbar = `<div class="segbar">${scopes.map(s =>
     `<div class="seg${state.scope === s ? ' on' : ''}" data-act="scope" data-arg="${esc(s)}">${s === 'Assurance Vie' ? 'Assur. Vie' : s}</div>`).join('')}</div>`;
-  const tabs = `<div class="chips">${[['titre','Par ligne'],['secteur','Secteurs'],['classe','Classes'],['expo','Exposition']]
+  const tabs = `<div class="chips" style="gap:6px">${[['titre','Lignes'],['secteur','Secteurs'],['classe','Classes'],['expo','Doublons'],['geo','Pays']]
     .map(([v,l]) => `<div class="chip${state.tab === v ? ' on' : ''}" data-act="tab" data-arg="${v}">${l}</div>`).join('')}</div>`;
+
+  if (state.tab === 'geo'){
+    // Exposition géographique : page autonome en iframe, qui remonte sa hauteur réelle.
+    const scopeParam = state.scope === 'PEA' ? 'PEA' : (state.scope === 'Assurance Vie' ? 'AV' : 'Tout');
+    return `${segbar}${tabs}
+      <div class="card">
+        <iframe id="geo" src="/m/world-exposure.html?scope=${scopeParam}" title="Exposition géographique"
+                style="width:100%;height:${geoHeight}px;border:0;display:block"></iframe>
+      </div>`;
+  }
 
   if (state.tab === 'expo'){
     const denom = state.scope === 'Tout' ? (T().patrimoine || 1) : (compte(state.scope).value || 1);
@@ -801,6 +840,9 @@ function render(){
   app.innerHTML = header() + `<main>${SCREENS[state.screen]()}</main>` + nav() + sheet();
   const m = app.querySelector('main');
   if (m) m.scrollTop = scroll;
+
+  const geoFrame = document.getElementById('geo');
+  if (geoFrame) observeGeo(geoFrame);
 
   app.querySelectorAll('[data-drop]').forEach(el => {
     el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('over'); });

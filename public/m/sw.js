@@ -2,8 +2,8 @@
    Coquille en cache pour un démarrage hors réseau ; l'API reste toujours réseau d'abord. */
 'use strict';
 
-const CACHE = 'patrimoine-shell-v1';
-const SHELL = ['/m/', '/m/index.html', '/m/manifest.webmanifest', '/m/icon-192.png', '/m/icon-512.png'];
+const CACHE = 'patrimoine-shell-v2';
+const SHELL = ['/m/', '/m/index.html', '/m/world-exposure.html', '/m/manifest.webmanifest', '/m/icon-192.png', '/m/icon-512.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
