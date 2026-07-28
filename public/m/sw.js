@@ -1,9 +1,17 @@
 /* Service worker de l'app mobile.
-   Coquille en cache pour un démarrage hors réseau ; l'API reste toujours réseau d'abord. */
+   Coquille en cache pour un démarrage hors réseau. Les appels Firebase
+   (Auth, Firestore, Cloud Functions) partent vers des origines Google
+   distinctes (googleapis.com, cloudfunctions.net) : le filtre d'origine
+   ci-dessous les laisse passer sans interférer — le SDK Firestore gère
+   lui-même son propre cache hors-ligne (IndexedDB). */
 'use strict';
 
-const CACHE = 'patrimoine-shell-v2';
-const SHELL = ['/m/', '/m/index.html', '/m/world-exposure.html', '/m/manifest.webmanifest', '/m/icon-192.png', '/m/icon-512.png'];
+const CACHE = 'patrimoine-shell-v3';
+const SHELL = [
+  '/m/', '/m/index.html', '/m/world-exposure.html', '/m/manifest.webmanifest',
+  '/m/icon-192.png', '/m/icon-512.png',
+  '/firebase-config.js', '/firebase-client.js'
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
@@ -19,11 +27,9 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
+  // laisse passer tout ce qui n'est pas un GET same-origin (POST, requêtes Firebase
+  // vers d'autres domaines, etc.) sans passer par le cache de la coquille.
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
-
-  // l'API n'est jamais servie depuis le cache : les cotations doivent être fraîches
-  // (l'app garde elle-même le dernier instantané dans localStorage)
-  if (url.pathname.startsWith('/api/')) return;
 
   e.respondWith(
     fetch(e.request)

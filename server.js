@@ -1,13 +1,18 @@
 'use strict';
 
 /**
- * Serveur local du dashboard Patrimoine.
- * - sert public/
- * - /api/import : CSV / XLSX → opérations ou positions
- * - /api/perf   : valorisation du portefeuille avec cotations en direct
- * - /api/stream : flux SSE, une valorisation toutes les REFRESH_MS
+ * LEGACY — serveur local mono-utilisateur, remplacé par Firebase (voir README
+ * § « App mobile Android » historique et README-FIREBASE.md pour la config
+ * actuelle). public/index.html et public/m/index.html chargent désormais
+ * firebase-client.js et ne parlent plus aux routes /api/* ci-dessous : les
+ * lancer avec `node server.js` affiche l'écran de connexion Firebase, pas
+ * les anciennes données locales de data/portfolio.json.
  *
- * - /m          : app mobile installable (PWA)
+ * Conservé pour deux usages :
+ *  1. servir public/ en statique pendant le développement (avant de passer
+ *     à `firebase emulators:start`, qui fait la même chose + Functions/Firestore) ;
+ *  2. référence : functions/lib/*.js est un portage quasi verbatim de lib/*.js
+ *     ci-dessous (mêmes parseurs CSV/XLSX, mêmes cotations Yahoo/Stooq).
  *
  * Zéro dépendance npm. Écoute sur 127.0.0.1 par défaut ; exposer sur le réseau
  * local (HOST=0.0.0.0, pour installer l'app sur un téléphone) exige un jeton.

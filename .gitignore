@@ -4,6 +4,14 @@ data/*.json
 !data/*.example.json
 
 node_modules/
+functions/node_modules/
 *.log
 .DS_Store
 Thumbs.db
+
+# Firebase CLI
+.firebase/
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
+pglite-debug.log
