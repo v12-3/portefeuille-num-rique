@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#ffffff">
+<meta name="mobile-web-app-capable" content="yes">
+<title>Patrimoine</title>
+<link rel="manifest" href="/m/manifest.webmanifest">
+<link rel="icon" href="/m/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue:#0052ff; --blue-d:#003ecc;
+  --green:#05b169; --green-bg:#e8f8f0; --red:#cf202f; --red-bg:#fff0f1;
+  --ink:#0a0b0d; --mut:#5b616e; --mut2:#7c828a; --mut3:#a8acb3;
+  --line:#dee1e6; --line2:#eef0f3; --line3:#f2f3f5;
+  --bg:#f7f7f7; --white:#fff; --dark:#0a0b0d;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:Inter,-apple-system,system-ui,Roboto,"Segoe UI",sans-serif;
+  -webkit-font-smoothing:antialiased;overscroll-behavior-y:none;
+}
+#app{display:flex;flex-direction:column;height:100dvh;overflow:hidden;position:relative}
+
+/* ---------- barre haute ---------- */
+.top{
+  background:var(--white);border-bottom:1px solid var(--line);
+  padding:calc(14px + env(safe-area-inset-top)) 20px 12px;
+  display:flex;align-items:center;justify-content:space-between;gap:12px;flex:none;
+}
+.top h1{font-size:17px;font-weight:600;letter-spacing:-.3px;line-height:1.2;margin:0}
+.top-sub{display:flex;align-items:center;gap:6px;margin-top:3px;font-size:11px;color:var(--mut2)}
+.dot{width:5px;height:5px;border-radius:9999px;background:var(--green);display:inline-block;flex:none}
+.dot.warn{background:#b7791f}
+.dot.off{background:var(--mut3)}
+.dot.live{animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.icon-btn{width:38px;height:38px;border-radius:9999px;background:var(--bg);display:flex;align-items:center;justify-content:center;flex:none;border:0;padding:0;cursor:pointer}
+.icon-btn:active{background:var(--line2)}
+.icon-btn.primary{background:var(--blue)}
+.icon-btn.primary:active{background:var(--blue-d)}
+
+/* ---------- contenu ---------- */
+main{flex:1;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch}
+main::-webkit-scrollbar{display:none}
+main{scrollbar-width:none}
+.screen{padding:16px;display:flex;flex-direction:column;gap:12px}
+.card{background:var(--white);border:1px solid var(--line);border-radius:20px;padding:20px}
+.card.tight{padding:8px 20px}
+.card-t{font-size:15px;font-weight:600;letter-spacing:-.1px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.pos{color:var(--green)}.neg{color:var(--red)}.muted{color:var(--mut2)}
+.lbl{font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--mut2)}
+.big{font-family:var(--mono);font-size:36px;font-weight:500;letter-spacing:-1.4px;margin-top:8px;font-variant-numeric:tabular-nums}
+.badge{background:var(--green-bg);border-radius:100px;padding:3px 9px;font-family:var(--mono);font-size:12px;font-weight:600;color:var(--green)}
+.badge.down{background:var(--red-bg);color:var(--red)}
+.badge.flat{background:var(--line2);color:var(--mut)}
+.row{display:flex;justify-content:space-between;gap:12px}
+.list-row{display:flex;align-items:center;gap:12px;padding:14px 0;border-bottom:1px solid var(--bg)}
+.list-row:last-child{border-bottom:0}
+.ava{width:38px;height:38px;border-radius:9999px;background:var(--line2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex:none}
+.ava.sm{width:34px;height:34px;font-size:11px}
+.grow{flex:1;min-width:0}
+.ell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{padding:9px 12px;border-radius:100px;font-size:13px;font-weight:600;white-space:nowrap;flex:none;background:var(--white);color:var(--mut);border:1px solid var(--line);cursor:pointer}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.segbar{display:flex;background:var(--line2);border-radius:100px;padding:4px;gap:2px}
+.seg{flex:1;text-align:center;padding:9px 12px;border-radius:100px;font-size:13px;font-weight:600;color:var(--mut);cursor:pointer}
+.seg.on{background:var(--white);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.bar{display:flex;border-radius:9px;overflow:hidden;gap:2px}
+.track{height:8px;border-radius:4px;background:var(--line2)}
+.track .fill{height:100%;border-radius:4px;background:var(--blue)}
+.dark{background:var(--dark);border-radius:20px;padding:20px;color:#fff}
+.dark .k{font-size:13px;color:var(--mut3)}
+.dark .v{font-family:var(--mono);font-size:13px;color:#fff;white-space:nowrap}
+.btn-w{margin-top:16px;height:44px;border-radius:100px;background:#fff;color:var(--ink);font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer;border:0;width:100%;font-family:inherit}
+.hint{font-size:11px;color:var(--mut3);margin-top:9px}
+.tipbox{background:var(--bg);border-radius:14px;padding:14px 16px;margin-top:14px}
+.empty{padding:28px 12px;text-align:center;color:var(--mut2);font-size:14px}
+.note{font-size:13px;color:var(--mut);line-height:1.55;margin-top:14px;padding-top:14px;border-top:1px solid var(--line2)}
+.alert{background:#f7f9ff;border:1px solid #cfdcff;border-radius:20px;padding:18px;display:flex;gap:12px;align-items:flex-start}
+.alert .bang{width:22px;height:22px;border-radius:9999px;background:var(--blue);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
+
+/* ---------- nav basse ---------- */
+.nav{
+  background:var(--white);border-top:1px solid var(--line);
+  padding:8px 16px calc(10px + env(safe-area-inset-bottom));
+  display:grid;grid-template-columns:repeat(3,1fr);gap:4px;flex:none;
+}
+.nav-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:8px 2px 6px;border-radius:14px;cursor:pointer;background:transparent;border:0;font-family:inherit}
+.nav-item.on{background:var(--line2)}
+.nav-item span{font-size:11px;font-weight:600;color:var(--mut2);white-space:nowrap}
+.nav-item.on span{color:var(--ink)}
+
+/* ---------- bottom sheet ---------- */
+.sheet-bg{position:absolute;inset:0;background:rgba(10,11,13,.5);display:flex;align-items:flex-end;z-index:40}
+.sheet{width:100%;background:#fff;border-radius:24px 24px 0 0;padding:12px 20px calc(24px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:16px;max-height:88dvh;overflow:auto;animation:up .18s ease-out}
+@keyframes up{from{transform:translateY(18px)}to{transform:none}}
+.grab{width:36px;height:4px;border-radius:2px;background:var(--line);margin:0 auto}
+.drop{border:2px dashed var(--blue);border-radius:16px;padding:24px;display:flex;flex-direction:column;align-items:center;gap:8px;background:#f7f9ff;text-align:center;cursor:pointer}
+.drop.over{background:#eaf0ff}
+.code{background:var(--bg);border-radius:12px;padding:12px 14px;font-family:var(--mono);font-size:11px;line-height:1.7;color:var(--mut)}
+.btn-p{height:48px;border-radius:100px;background:var(--blue);color:#fff;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;border:0;width:100%;font-family:inherit}
+.btn-p[disabled]{opacity:.5}
+.report{border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.55}
+.report.ok{background:#f0fdf6;border:1px solid #b9ecd2;color:#0a5c3a}
+.report.err{background:#fff5f5;border:1px solid #f3c9cd;color:#8c1620}
+.report.busy{background:var(--bg);border:1px solid var(--line);color:var(--mut)}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--mut3);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<input type="file" id="picker" accept=".csv,.txt,.tsv,.xlsx,.xlsm" style="display:none">
+
+<script>
+"use strict";
+
+/* ============================================================
+   Données statiques (mêmes réserves que sur le dashboard :
+   look-through ETF et commentaires d'exposition non déductibles
+   d'un export courtier)
+   ============================================================ */
+const PAL = ['#0052ff','#0a0b0d','#4d84ff','#5b616e','#99b7ff','#a8acb3','#c8ccd2','#dee1e6','#eef0f3'];
+const MSHORT = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+const MLONG = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const HIDDEN = '•••• €';
+
+const SECTEURS = {
+  'Tout': [['Épargne réglementée',6686.68],['Industrie & équipement',577.04],['Technologie & logiciel',533.05],['Énergie & utilities',158.06],['Obligations & fonds euro',157.47],['Finance',47.27],['Consommation',40.52],['Santé',33.77],['Autres secteurs',50.66]],
+  'PEA': [['Industrie & équipement',539.90],['Logiciel & services IT',425.00],['Énergie & utilities',137.80],['Liquidités',5.00]],
+  'Assurance Vie': [['Obligations & fonds euro',157.47],['Technologie',108.05],['Finance',47.27],['Consommation',40.52],['Industrie',37.14],['Santé',33.77],['Énergie & utilities',20.26],['Autres secteurs',50.66]]
+};
+const NOTES = {
+  'Tout': { titre:'Le Livret A est de loin le premier poste du patrimoine.', secteur:'Répartition sectorielle estimée par transparence sur les ETF.', classe:'Part garantie, actions et obligations recalculées à chaque cotation.' },
+  'PEA': { titre:'Trois lignes seulement, très concentrées.', secteur:'Aucune diversification sectorielle réelle.', classe:'Que des actions en direct, aucun ETF.' },
+  'Assurance Vie': { titre:'Neuf supports, dont deux ETF sur le même indice.', secteur:'Contrat partagé entre poche actions et poche obligataire.', classe:'ETF actions, obligations et fonds euro.' }
+};
+const EXPO = {
+  'Tout': [
+    ['Schneider Electric',539.90,0.58,'En direct + Vanguard Europe'],
+    ['Sidetrade',425.00,0,'En direct (PEA) uniquement'],
+    ['Engie',137.80,0.22,'En direct + Vanguard Europe'],
+    ['NVIDIA',0,19.42,'Amundi S&P 500 ×2 + MSCI World'],
+    ['Microsoft',0,16.83,'Amundi S&P 500 ×2 + MSCI World'],
+    ['Apple',0,15.55,'Amundi S&P 500 ×2 + MSCI World']
+  ],
+  'PEA': [
+    ['Schneider Electric',539.90,0,'En direct'],
+    ['Sidetrade',425.00,0,'En direct'],
+    ['Engie',137.80,0,'En direct']
+  ],
+  'Assurance Vie': [
+    ['NVIDIA',0,19.42,'Amundi S&P 500 ×2 + MSCI World'],
+    ['Microsoft',0,16.83,'Amundi S&P 500 ×2 + MSCI World'],
+    ['Apple',0,15.55,'Amundi S&P 500 ×2 + MSCI World'],
+    ['Amazon',0,9.84,'Amundi S&P 500 ×2 + MSCI World'],
+    ['Alphabet',0,8.95,'Amundi S&P 500 ×2 + MSCI World']
+  ]
+};
+const EXPO_META = {
+  'Tout': { title:"L'exposition réelle aux actions reste minoritaire", body:'Le Livret A absorbe l\'essentiel du patrimoine ; seules les lignes du PEA et les UC de l\'assurance vie sont exposées aux marchés.', overlap:'100 %', overlapNote:'Les deux ETF Amundi suivent le même S&P 500 — doublon d\'exposition.', top5:'95,6 %', top5Bar:95.6 },
+  'PEA': { title:'Trois lignes, aucune diversification', body:'Aucun ETF dans le PEA : la performance dépend entièrement de Schneider, Sidetrade et Engie. Sidetrade est une small cap peu liquide.', overlap:'—', overlapNote:'Aucun fonds dans l\'enveloppe : pas de chevauchement, mais aucune dilution du risque non plus.', top5:'99,5 %', top5Bar:99.5 },
+  'Assurance Vie': { title:'Deux ETF pour un seul indice', body:'Amundi Core S&P 500 et Amundi S&P 500 Hedged suivent le même panier. Avec le MSCI World, l\'exposition américaine dépasse la moitié du contrat.', overlap:'100 %', overlapNote:'Le S&P 500 pèse aussi 71 % du MSCI World : trois supports se recouvrent.', top5:'87,3 %', top5Bar:87.3 }
+};
+
+const OPICON = { Achat:'↓', Vente:'↑', Versement:'+', Dividende:'€', Ouverture:'★', Retrait:'−' };
+
+/* ============================================================
+   Formatage
+   ============================================================ */
+const eur  = n => (n ?? 0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+const eur0 = n => Math.round(n ?? 0).toLocaleString('fr-FR') + ' €';
+const pctS = n => (n ?? 0).toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' %';
+const num2 = n => Math.abs(n ?? 0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const sgn  = n => n > 0 ? '+' : (n < 0 ? '−' : '');
+const sEur = n => sgn(n) + num2(n) + ' €';
+const sPct = n => sgn(n) + num2(n) + ' %';
+const kls  = n => n > 0 ? 'pos' : (n < 0 ? 'neg' : '');
+const esc  = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const abbr = s => (s || '?').replace(/[^A-Za-zÀ-ÿ ]/g,'').split(/\s+/).map(w => w[0]).join('').slice(0,2).toUpperCase();
+const frDate = s => s ? s.slice(8) + '/' + s.slice(5,7) : '';
+const mLabel = s => s ? MSHORT[+s.slice(5,7)-1] + ' ' + s.slice(2,4) : '';
+const mLong  = s => s ? MLONG[+s.slice(5,7)-1] + ' ' + s.slice(0,4) : '';
+
+/* masquage des montants (œil dans la barre haute) */
+const money  = txt => state.hide ? HIDDEN : txt;
+const mEur   = n => state.hide ? HIDDEN : eur(n);
+const mEur0  = n => state.hide ? HIDDEN : eur0(n);
+const mSEur  = n => state.hide ? HIDDEN : sEur(n);
+
+/* ============================================================
+   État
+   ============================================================ */
+const state = {
+  screen:'accueil', mode:'env', env:'PEA', scope:'Tout', tab:'titre',
+  seg:null, filt:'Tous', sheet:false, hov:null,
+  hide: localStorage.getItem('hideAmounts') === '1',
+  importing:false, report:null
+};
+let snap = null;
+let conn = { status:'connecting', at:null, error:null };
+
+function set(patch){
+  let changed = false;
+  for (const k in patch) if (state[k] !== patch[k]) { state[k] = patch[k]; changed = true; }
+  if (changed) render();
+}
+
+/* ============================================================
+   API (mêmes routes que le dashboard)
+   ============================================================ */
+const TOKEN = new URLSearchParams(location.search).get('k') || localStorage.getItem('token') || '';
+if (TOKEN) localStorage.setItem('token', TOKEN);
+const authed = (init = {}) => TOKEN ? { ...init, headers:{ ...(init.headers || {}), 'X-Token':TOKEN } } : init;
+
+const API = {
+  async perf(){
+    const r = await fetch('/api/perf', authed());
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    return r.json();
+  },
+  async refresh(){
+    const r = await fetch('/api/refresh', authed({ method:'POST' }));
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    return r.json();
+  },
+  async import(file){
+    const r = await fetch('/api/import', authed({
+      method:'POST',
+      headers:{ 'Content-Type':'application/octet-stream', 'X-File-Name':encodeURIComponent(file.name) },
+      body:file
+    }));
+    const j = await r.json().catch(() => ({ error:`HTTP ${r.status}` }));
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    return j;
+  }
+};
+
+function applySnapshot(s){
+  snap = s;
+  conn = { status: s.quotes?.failed?.length ? 'partial' : 'live', at: Date.now(), error: null };
+  try { localStorage.setItem('lastSnapshot', JSON.stringify(s)); } catch {}
+  render();
+}
+
+function connect(){
+  let poll = null;
+  const startPolling = () => {
+    if (poll) return;
+    poll = setInterval(async () => {
+      if (document.hidden) return;                    // pas de réseau en arrière-plan
+      try { applySnapshot(await API.perf()); }
+      catch (e) { conn = { status:'offline', at:conn.at, error:e.message }; render(); }
+    }, 60_000);
+  };
+  try {
+    const es = new EventSource('/api/stream' + (TOKEN ? '?k=' + encodeURIComponent(TOKEN) : ''));
+    es.addEventListener('perf', e => { if (poll) { clearInterval(poll); poll = null; } applySnapshot(JSON.parse(e.data)); });
+    es.addEventListener('error', () => { conn = { status:'offline', at:conn.at, error:'flux interrompu' }; render(); startPolling(); });
+  } catch { startPolling(); }
+}
+
+async function boot(){
+  // dernier instantané connu : l'app s'ouvre remplie même hors réseau
+  try {
+    const cached = localStorage.getItem('lastSnapshot');
+    if (cached) { snap = JSON.parse(cached); conn = { status:'cache', at:null, error:null }; render(); }
+  } catch {}
+
+  try { applySnapshot(await API.perf()); }
+  catch (e) { conn = { status:'offline', at:conn.at, error:e.message }; render(); return; }
+  connect();
+}
+
+/* ============================================================
+   Sélecteurs
+   ============================================================ */
+const T = () => snap?.totals || {};
+const compte = n => snap?.comptes?.[n] || { value:0, mise:0, pv:0, pvPct:0, lines:[], cash:0 };
+const comptes = () => Object.keys(snap?.comptes || {});
+const hist = () => snap?.history || [];
+
+function chart(points, W, H, pad = 10){
+  if (points.length < 2) return null;
+  const vals = points.flatMap(p => [p.val, p.cap]);
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if (max === min) { max += 1; min -= 1; }
+  const span = max - min; min -= span * .12; max += span * .12;
+  const x = i => i * W / (points.length - 1);
+  const y = v => pad + (max - v) / (max - min) * (H - 2 * pad);
+  const line = k => points.map((p,i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p[k]).toFixed(1)}`).join(' ');
+  const area = line('val') + ' ' + points.map((_,i) => {
+    const j = points.length - 1 - i;
+    return `L${x(j).toFixed(1)},${y(points[j].cap).toFixed(1)}`;
+  }).join(' ') + ' Z';
+  return { valPath:line('val'), capPath:line('cap'), areaPath:area, x, y, lastX:x(points.length-1), lastY:y(points[points.length-1].val) };
+}
+
+/* ============================================================
+   Barre haute
+   ============================================================ */
+function status(){
+  if (conn.status === 'offline') return { dot:'off', text: snap ? 'Hors ligne · dernières valeurs connues' : esc(conn.error || 'serveur injoignable') };
+  if (conn.status === 'cache') return { dot:'off', text:'Chargement…' };
+  const failed = snap?.quotes?.failed?.length || 0;
+  const total = (snap?.lines || []).length;
+  const age = conn.at ? Math.round((Date.now() - conn.at) / 1000) : null;
+  const when = age == null ? '' : (age < 90 ? `il y a ${age} s` : `il y a ${Math.round(age/60)} min`);
+  if (failed) return { dot:'warn', text:`${total - failed}/${total} cotations · ${when}` };
+  return { dot:'live', text:`À jour · ${when}` };
+}
+
+function header(){
+  const s = status();
+  const titles = {
+    accueil: ['Patrimoine', s.text],
+    portefeuille: [state.mode === 'env' ? 'Portefeuille' : 'Répartition',
+                   state.mode === 'env' ? `${comptes().length} enveloppes suivies` : (state.scope === 'Tout' ? 'Tout le patrimoine' : state.scope)],
+    ops: ['Activité', `${(snap?.operations || []).length} opérations`]
+  };
+  const t = titles[state.screen];
+  return `
+  <div class="top">
+    <div>
+      <h1>${t[0]}</h1>
+      <div class="top-sub"><span class="dot ${s.dot}"></span><span>${t[1]}</span></div>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button class="icon-btn" data-act="hide" aria-label="${state.hide ? 'Afficher' : 'Masquer'} les montants">
+        ${state.hide
+          ? `<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z" stroke="#5b616e" stroke-width="1.5"/><path d="M3 3l14 14" stroke="#5b616e" stroke-width="1.5" stroke-linecap="round"/></svg>`
+          : `<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z" stroke="#5b616e" stroke-width="1.5"/><circle cx="10" cy="10" r="2.2" stroke="#5b616e" stroke-width="1.5"/></svg>`}
+      </button>
+      <button class="icon-btn primary" data-act="sheet" data-arg="1" aria-label="Importer des données">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 11V2M8 2L4.5 5.5M8 2l3.5 3.5M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   Écran Accueil
+   ============================================================ */
+function screenAccueil(){
+  const t = T();
+  const pts = hist().slice(-12);
+  const c = chart(pts, 340, 130, 14);
+  const hi = state.hov == null ? pts.length - 1 : Math.min(state.hov, pts.length - 1);
+  const p = pts[hi];
+  const gain = p ? p.val - p.cap : 0;
+
+  const zones = pts.map((_,i) => `<div data-act="hov" data-arg="${i}" style="flex:1"></div>`).join('');
+  const axis = pts.length > 3
+    ? [0, Math.floor(pts.length/3), Math.floor(2*pts.length/3), pts.length-1]
+        .filter((v,i,a) => a.indexOf(v) === i).map(i => `<span style="font-size:10px;color:var(--mut3)">${mLabel(pts[i].date)}</span>`).join('')
+    : '';
+
+  const envCards = comptes().map(name => {
+    const e = compte(name);
+    const garanti = !!e.garanti;
+    return `
+    <div class="list-row" data-act="env" data-arg="${esc(name)}">
+      <div class="ava">${abbr(name)}</div>
+      <div class="grow">
+        <div style="font-size:15px;font-weight:600">${esc(name)}</div>
+        <div class="ell" style="font-size:12px;color:var(--mut2)">${garanti ? `Épargne garantie · ${e.taux ? pctS(e.taux) : '—'}` : `${e.lines.length} ligne${e.lines.length > 1 ? 's' : ''}`}</div>
+      </div>
+      <div style="text-align:right;flex:none">
+        <div class="mono" style="font-size:15px;font-weight:500">${mEur0(e.value)}</div>
+        <div class="mono ${garanti ? 'muted' : kls(e.pvPct)}" style="font-size:12px;font-weight:600;margin-top:2px">${garanti ? 'garanti' : sPct(e.pvPct)}</div>
+      </div>
+      <svg width="8" height="14" viewBox="0 0 8 14" fill="none" style="flex:none"><path d="M1 1l6 6-6 6" stroke="#c8ccd2" stroke-width="1.8" stroke-linecap="round"/></svg>
+    </div>`;
+  }).join('');
+
+  const la = compte('Livret A');
+  const part = t.patrimoine ? la.value / t.patrimoine * 100 : 0;
+  const versable = Math.max(0, 22950 - la.value);
+
+  return `<div class="screen">
+    <div class="card">
+      <div class="lbl">Patrimoine total</div>
+      <div class="big">${mEur(t.patrimoine)}</div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap">
+        <span class="badge ${t.pv >= 0 ? '' : 'down'}">${t.pv >= 0 ? '▲' : '▼'} ${sPct(t.pvPct)}</span>
+        <span class="mono ${kls(t.pv)}" style="font-size:13px;font-weight:500">${mSEur(t.pv)}</span>
+        <span style="font-size:12px;color:var(--mut2)">${t.premiereOperation ? 'depuis ' + mLabel(t.premiereOperation) : ''}</span>
+      </div>
+
+      ${c ? `
+      <div style="position:relative;margin-top:18px">
+        <svg width="100%" height="124" viewBox="0 0 340 130" preserveAspectRatio="none" style="display:block">
+          <path d="${c.areaPath}" fill="${t.pv >= 0 ? '#05b169' : '#cf202f'}" fill-opacity="0.12"/>
+          <path d="${c.capPath}" fill="none" stroke="#a8acb3" stroke-width="1.8" stroke-dasharray="4 3"/>
+          <path d="${c.valPath}" fill="none" stroke="${t.pv >= 0 ? '#05b169' : '#cf202f'}" stroke-width="2.4" stroke-linejoin="round"/>
+          <circle cx="${c.x(hi)}" cy="${c.y(pts[hi].val)}" r="4" fill="${t.pv >= 0 ? '#05b169' : '#cf202f'}"></circle>
+        </svg>
+        <div style="position:absolute;inset:0;display:flex">${zones}</div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:6px">${axis}</div>
+
+      <div class="tipbox">
+        <div class="row" style="align-items:baseline">
+          <span class="lbl">${mLong(p.date)}</span>
+          <span class="mono ${kls(gain)}" style="font-size:12px;font-weight:600">${sPct(p.cap ? gain/p.cap*100 : 0)}</span>
+        </div>
+        <div class="row" style="margin-top:8px"><span style="font-size:13px;color:var(--mut)">Patrimoine</span><span class="mono" style="font-size:13px;font-weight:500">${mEur(p.val)}</span></div>
+        <div class="row" style="margin-top:5px"><span style="font-size:13px;color:var(--mut)">Capital versé</span><span class="mono" style="font-size:13px;font-weight:500">${mEur(p.cap)}</span></div>
+        <div class="row" style="margin-top:5px"><span style="font-size:13px;color:var(--mut)">Gains</span><span class="mono ${kls(gain)}" style="font-size:13px;font-weight:600">${mSEur(gain)}</span></div>
+        <div class="hint">Touche la courbe pour changer de mois</div>
+      </div>` : '<div class="empty">Historique en cours de constitution.</div>'}
+
+      <div class="bar" style="height:34px;margin-top:16px">
+        <div style="flex:${Math.max(1, t.capital)};background:var(--line2);display:flex;align-items:center;padding-left:12px"><span class="mono" style="font-size:12px;font-weight:500;white-space:nowrap">${mEur(t.capital)}</span></div>
+        <div style="flex:${Math.max(1, Math.abs(t.pv))};background:${t.pv >= 0 ? 'var(--green)' : 'var(--red)'};display:flex;align-items:center;justify-content:center;min-width:54px"><span class="mono" style="font-size:11px;font-weight:600;color:#fff;white-space:nowrap">${state.hide ? '••' : sEur(t.pv)}</span></div>
+      </div>
+      <div style="display:flex;gap:16px;margin-top:10px">
+        <div style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:var(--line2);border:1px solid var(--line);display:inline-block"></span><span style="font-size:12px;color:var(--mut)">Capital ${pctS(100 - (t.capital ? t.pv/t.capital*100 : 0))}</span></div>
+        <div style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:var(--green);display:inline-block"></span><span style="font-size:12px;color:var(--mut)">Gains ${pctS(t.capital ? t.pv/t.capital*100 : 0)}</span></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line2)">
+        <div><div style="font-size:11px;color:var(--mut2)">PV latentes</div><div class="mono ${kls(t.pv)}" style="font-size:15px;font-weight:500;margin-top:3px;white-space:nowrap">${mSEur(t.pv)}</div></div>
+        <div><div style="font-size:11px;color:var(--mut2)">Dividendes</div><div class="mono pos" style="font-size:15px;font-weight:500;margin-top:3px;white-space:nowrap">${mSEur(divTotal())}</div></div>
+        <div><div style="font-size:11px;color:var(--mut2)">Ce mois</div><div class="mono" style="font-size:15px;font-weight:500;margin-top:3px;white-space:nowrap">${mSEur(t.epargneMois || 0)}</div></div>
+      </div>
+    </div>
+
+    <div class="card tight">${envCards || '<div class="empty">Aucune enveloppe.</div>'}</div>
+
+    ${la.value ? `
+    <div class="dark">
+      <div class="lbl" style="color:var(--mut3)">À surveiller</div>
+      <div style="font-size:17px;font-weight:400;letter-spacing:-.3px;margin-top:8px;line-height:1.35">${pctS(part)} de ton épargne dort sur un livret à ${la.taux ? pctS(la.taux) : '—'}</div>
+      <div style="font-size:13px;color:var(--mut3);line-height:1.55;margin-top:10px">Ton matelas de précaution est atteint (${(la.value / 1500).toLocaleString('fr-FR',{maximumFractionDigits:1})} mois). Au-delà, l'excédent perd du pouvoir d'achat dès que l'inflation dépasse le taux du livret.</div>
+      <div class="bar" style="height:34px;margin-top:16px">
+        ${comptes().map(n => {
+          const e = compte(n), col = e.garanti ? '#3f4652' : (n === 'PEA' ? '#0052ff' : '#05b169');
+          return `<div style="flex:${Math.max(1,e.value)};background:${col};display:flex;align-items:center;justify-content:center;padding:0 8px"><span class="mono" style="font-size:11px;font-weight:600;color:${col === '#05b169' ? '#0a0b0d' : '#fff'};white-space:nowrap">${e.garanti ? esc(n) + ' ' + pctS(part) : esc(abbr(n))}</span></div>`;
+        }).join('')}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px">
+        ${comptes().map(n => `<div class="row"><span class="k">${esc(n)}</span><span class="v">${mEur(compte(n).value)}</span></div>`).join('')}
+      </div>
+      <div class="row" style="margin-top:14px;padding-top:14px;border-top:1px solid #2a2f37">
+        <span class="k">Encore versable avant plafond</span><span class="v" style="font-weight:600">${mEur0(versable)}</span>
+      </div>
+      <button class="btn-w" data-act="env" data-arg="Livret A">Ouvrir le Livret A →</button>
+    </div>` : ''}
+  </div>`;
+}
+
+function divTotal(){
+  const d = snap?.dividends || {};
+  return Object.values(d).reduce((s,y) => s + (y.total || 0), 0);
+}
+
+/* ============================================================
+   Écran Portefeuille — mode Enveloppes
+   ============================================================ */
+function modeEnveloppes(){
+  const name = comptes().includes(state.env) ? state.env : (comptes()[0] || '');
+  const e = compte(name);
+  const garanti = !!e.garanti;
+
+  const chips = comptes().map(n => `<div class="chip${n === name ? ' on' : ''}" data-act="env" data-arg="${esc(n)}">${esc(n)}</div>`).join('');
+
+  const stats = garanti
+    ? [['Capital garanti', mEur(e.value), 0], ['Intérêts estimés', e.interets ? mSEur(e.interets) : '—', 1],
+       ['Taux en vigueur', e.taux ? pctS(e.taux) : '—', 0], ['Matelas de sécurité', (e.value/1500).toLocaleString('fr-FR',{maximumFractionDigits:1}) + ' mois', 0]]
+    : [['Mise', mEur(e.mise), 0],
+       ['Dividendes ' + new Date().getFullYear(), mSEur(divFor(name)), 1],
+       ['Meilleure ligne', e.lines[0] ? `${e.lines[0].name.slice(0,18)} ${sPct(e.lines[0].pct)}` : '—', 1],
+       ['Moins bonne', e.lines.length > 1 ? `${e.lines[e.lines.length-1].name.slice(0,18)} ${sPct(e.lines[e.lines.length-1].pct)}` : '—', e.lines.length > 1 && e.lines[e.lines.length-1].pct < 0 ? -1 : 1]];
+
+  const gauge = garanti
+    ? { label:'Plafond réglementaire', value:`${Math.round(e.value).toLocaleString('fr-FR')} / 22 950 €`, pct: e.value/22950*100 }
+    : (name === 'PEA'
+        ? { label:'Plafond de versement', value:`${Math.round(e.mise).toLocaleString('fr-FR')} / 150 000 €`, pct: e.mise/150000*100 }
+        : { label:'Antériorité fiscale', value:'5 mois / 8 ans', pct:5.2 });
+
+  const lines = e.lines.map(l => `
+    <div class="list-row">
+      <div class="ava sm">${esc(abbr(l.name))}</div>
+      <div class="grow">
+        <div class="ell" style="font-size:14px;font-weight:500">${esc(l.name)}</div>
+        <div class="ell" style="font-size:12px;color:var(--mut2)">${esc([l.symbol || l.ticker, l.pru != null ? 'PRU ' + eur(l.pru) : '', l.live ? '' : 'cours différé'].filter(Boolean).join(' · '))}</div>
+      </div>
+      <div style="text-align:right;flex:none">
+        <div class="mono" style="font-size:14px;font-weight:500">${mEur(l.value)}</div>
+        <div class="mono ${kls(l.pct)}" style="font-size:12px;font-weight:600;margin-top:2px">${sPct(l.pct)}</div>
+      </div>
+    </div>`).join('');
+
+  const cash = e.cash ? `
+    <div class="list-row">
+      <div class="ava sm">€</div>
+      <div class="grow"><div style="font-size:14px;font-weight:500">Liquidités</div><div style="font-size:12px;color:var(--mut2)">Espèces disponibles</div></div>
+      <div style="text-align:right;flex:none"><div class="mono" style="font-size:14px;font-weight:500">${mEur(e.cash)}</div><div class="mono muted" style="font-size:12px;font-weight:600;margin-top:2px">—</div></div>
+    </div>` : '';
+
+  return `
+    <div class="chips">${chips}</div>
+
+    <div class="card">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="ava" style="width:40px;height:40px;font-size:13px">${abbr(name)}</div>
+        <div class="grow"><div style="font-size:16px;font-weight:600">${esc(name)}</div><div class="ell" style="font-size:12px;color:var(--mut2)">${garanti ? 'Épargne de précaution' : e.lines.length + ' lignes'} · ${snap?.quotes?.provider && !garanti ? 'cotations ' + esc(snap.quotes.provider) : 'solde manuel'}</div></div>
+      </div>
+      <div class="mono" style="font-size:30px;font-weight:500;letter-spacing:-1px;margin-top:16px">${mEur(e.value)}</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
+        <span class="badge ${garanti ? 'flat' : (e.pv >= 0 ? '' : 'down')}">${garanti ? 'Capital garanti' : (e.pv >= 0 ? '▲ ' : '▼ ') + sPct(e.pvPct).replace('+','')}</span>
+        ${garanti ? '' : `<span class="mono ${kls(e.pv)}" style="font-size:13px;font-weight:500">${mSEur(e.pv)}</span>`}
+      </div>
+      <div class="bar" style="height:8px;border-radius:4px;margin-top:16px">
+        <div style="flex:${Math.max(1, e.mise)};background:var(--line2)"></div>
+        ${e.pv ? `<div style="flex:${Math.max(4, Math.abs(e.pv))};background:${e.pv >= 0 ? 'var(--green)' : 'var(--red)'}"></div>` : ''}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line2)">
+        ${stats.map(s => `<div class="row"><span style="font-size:13px;color:var(--mut)">${esc(s[0])}</span><span class="mono ${s[2] === 1 ? 'pos' : (s[2] === -1 ? 'neg' : '')}" style="font-size:13px;font-weight:500;text-align:right">${esc(s[1])}</span></div>`).join('')}
+      </div>
+      <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line2)">
+        <div class="row" style="margin-bottom:8px"><span style="font-size:12px;color:var(--mut2)">${gauge.label}</span><span class="mono" style="font-size:12px;font-weight:500;color:var(--mut)">${state.hide ? HIDDEN : gauge.value}</span></div>
+        <div class="track"><div class="fill" style="width:${Math.max(1, Math.min(100, gauge.pct)).toFixed(1)}%"></div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row" style="align-items:baseline">
+        <div class="card-t">${garanti ? 'À savoir' : 'Lignes du portefeuille'}</div>
+        <span style="font-size:12px;color:var(--mut2)">${garanti ? "Exonéré d'impôt" : e.lines.length + ' lignes' + (e.cash ? ' + espèces' : '')}</span>
+      </div>
+      <div style="display:flex;flex-direction:column;margin-top:8px">
+        ${garanti
+          ? `<div class="list-row"><div class="ava sm">%</div><div class="grow"><div style="font-size:14px;font-weight:500">Intérêts par quinzaine</div><div style="font-size:12px;color:var(--mut2)">Versés au 31/12</div></div><div class="mono pos" style="font-size:14px;font-weight:500">${e.interets ? mSEur(e.interets) : '—'}</div></div>
+             <div class="list-row"><div class="ava sm">↑</div><div class="grow"><div style="font-size:14px;font-weight:500">Encore versable</div><div style="font-size:12px;color:var(--mut2)">Avant plafond</div></div><div class="mono" style="font-size:14px;font-weight:500">${mEur0(Math.max(0, 22950 - e.value))}</div></div>`
+          : (lines + cash) || '<div class="empty">Aucune ligne.</div>'}
+      </div>
+    </div>`;
+}
+
+function divFor(compteName){
+  return (snap?.operations || [])
+    .filter(o => o.compte === compteName && o.type === 'Dividende' && o.date.startsWith(String(new Date().getFullYear())))
+    .reduce((s,o) => s + o.montant, 0);
+}
+
+/* ============================================================
+   Écran Portefeuille — mode Répartition
+   ============================================================ */
+function allocRows(){
+  const a = snap?.allocation || { titre:[], classe:[] };
+  if (state.tab === 'secteur') return SECTEURS[state.scope] || [];
+  if (state.scope === 'Tout') return state.tab === 'classe' ? a.classe : a.titre;
+
+  const c = compte(state.scope);
+  const lines = c.lines.map(l => [l.name, l.value, l.classe]);
+  if (c.cash) lines.push(['Liquidités', c.cash, 'Liquidités']);
+  if (state.tab === 'classe'){
+    const by = {};
+    for (const [, v, k] of lines) by[k] = (by[k] || 0) + v;
+    return Object.entries(by).sort((x,y) => y[1] - x[1]).map(([k,v]) => [k, Math.round(v*100)/100]);
+  }
+  return lines.map(([n,v]) => [n,v]).sort((x,y) => y[1] - x[1]);
+}
+
+function modeRepartition(){
+  const rows = allocRows();
+  const total = rows.reduce((s,r) => s + r[1], 0) || 1;
+  const sh = state.seg;
+  const meta = EXPO_META[state.scope];
+
+  const scopes = ['Tout','PEA','Assurance Vie'];
+  const segbar = `<div class="segbar">${scopes.map(s =>
+    `<div class="seg${state.scope === s ? ' on' : ''}" data-act="scope" data-arg="${esc(s)}">${s === 'Assurance Vie' ? 'Assur. Vie' : s}</div>`).join('')}</div>`;
+  const tabs = `<div class="chips">${[['titre','Par ligne'],['secteur','Secteurs'],['classe','Classes'],['expo','Exposition']]
+    .map(([v,l]) => `<div class="chip${state.tab === v ? ' on' : ''}" data-act="tab" data-arg="${v}">${l}</div>`).join('')}</div>`;
+
+  if (state.tab === 'expo'){
+    const denom = state.scope === 'Tout' ? (T().patrimoine || 1) : (compte(state.scope).value || 1);
+    const list = (EXPO[state.scope] || []).map(r => {
+      const tot = r[1] + r[2], pc = tot / denom * 100;
+      return `
+      <div style="padding:14px 0;border-bottom:1px solid var(--bg)">
+        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
+          <span style="font-size:14px;font-weight:600">${esc(r[0])}</span>
+          <span class="mono" style="font-size:14px;font-weight:600;flex:none;color:${pc >= 5 ? 'var(--red)' : 'var(--ink)'}">${pctS(Math.round(pc*10)/10)}</span>
+        </div>
+        <div class="bar" style="height:5px;border-radius:3px;margin-top:8px"><div style="flex:${Math.max(r[1],0.5)};background:var(--ink)"></div><div style="flex:${Math.max(r[2],0.5)};background:var(--mut3)"></div></div>
+        <div class="row" style="margin-top:8px">
+          <span class="ell" style="font-size:12px;color:var(--mut2)">${esc(r[3])}</span>
+          <span class="mono" style="font-size:12px;font-weight:600;flex:none">${mEur(tot)}</span>
+        </div>
+      </div>`;
+    }).join('');
+
+    return `${segbar}${tabs}
+      <div class="alert">
+        <div class="bang">!</div>
+        <div>
+          <div style="font-size:14px;font-weight:600;line-height:1.35">${esc(meta.title)}</div>
+          <div style="font-size:13px;color:var(--mut);line-height:1.55;margin-top:4px">${esc(meta.body)}</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-t">Sous-jacents cumulés</div>
+        <div style="font-size:12px;color:var(--mut2);margin-top:3px">ETF décomposés, doublons inclus</div>
+        <div style="display:flex;flex-direction:column;margin-top:10px">${list}</div>
+        <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
+          <div style="border:1px solid var(--line);border-radius:14px;padding:16px">
+            <div style="font-size:12px;color:var(--mut2)">Chevauchement entre supports</div>
+            <div class="mono" style="font-size:22px;font-weight:500;margin-top:4px">${meta.overlap}</div>
+            <div style="font-size:13px;color:var(--mut);line-height:1.55;margin-top:6px">${esc(meta.overlapNote)}</div>
+          </div>
+          <div style="border:1px solid var(--line);border-radius:14px;padding:16px">
+            <div style="font-size:12px;color:var(--mut2)">Poids des 5 premières positions</div>
+            <div class="mono" style="font-size:22px;font-weight:500;margin-top:4px">${meta.top5}</div>
+            <div style="height:6px;border-radius:3px;background:var(--line3);margin-top:10px"><div style="width:${Math.min(100,meta.top5Bar)}%;height:100%;border-radius:3px;background:${meta.top5Bar > 60 ? 'var(--red)' : 'var(--blue)'}"></div></div>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  let cum = 0;
+  const segs = rows.map((r,i) => {
+    const pc = r[1] / total * 100, start = cum; cum += pc;
+    const active = sh === i;
+    return { i, color:PAL[i % PAL.length], w: active ? 6.8 : 5.4,
+      dash: Math.max(0.1, pc - 0.5).toFixed(2) + ' ' + (100 - pc + 0.5).toFixed(2),
+      off:(25 - start).toFixed(2), label:r[0], pct:pctS(Math.round(pc*10)/10), amount:mEur0(r[1]), active };
+  });
+
+  return `${segbar}${tabs}
+    <div class="card">
+      <div style="position:relative;width:200px;height:200px;margin:4px auto 0">
+        <svg width="200" height="200" viewBox="0 0 42 42" style="display:block">
+          <circle cx="21" cy="21" r="15.9" fill="none" stroke="#f2f3f5" stroke-width="5.4"></circle>
+          ${segs.map(s => `<circle cx="21" cy="21" r="15.9" fill="none" stroke="${s.color}" stroke-width="${s.w}" stroke-dasharray="${s.dash}" stroke-dashoffset="${s.off}" data-act="seg" data-arg="${s.i}" style="cursor:pointer"></circle>`).join('')}
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;padding:0 30px;text-align:center">
+          <div class="mono" style="font-size:26px;font-weight:500;letter-spacing:-.7px">${sh === null ? '100 %' : segs[sh].pct}</div>
+          <div style="font-size:12px;color:var(--mut);margin-top:2px;line-height:1.25">${sh === null ? (state.scope === 'Tout' ? 'du patrimoine' : "de l'enveloppe") : esc(segs[sh].label)}</div>
+          <div class="mono" style="font-size:12px;margin-top:5px">${sh === null ? mEur0(total) : segs[sh].amount}</div>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;margin-top:14px">
+        ${segs.map(s => `
+          <div data-act="seg" data-arg="${s.i}" style="display:flex;align-items:center;gap:10px;padding:10px 8px;border-radius:12px;cursor:pointer;background:${s.active ? 'var(--bg)' : 'transparent'}">
+            <span style="width:10px;height:10px;border-radius:3px;background:${s.color};display:inline-block;flex:none"></span>
+            <span class="ell" style="font-size:14px;font-weight:500;flex:1;min-width:0">${esc(s.label)}</span>
+            <span class="mono" style="font-size:13px;font-weight:600;flex:none">${s.pct}</span>
+            <span class="mono" style="font-size:12px;color:var(--mut2);width:74px;text-align:right;flex:none">${s.amount}</span>
+          </div>`).join('') || '<div class="empty">Aucune ligne.</div>'}
+      </div>
+      <div class="note">${NOTES[state.scope][state.tab]}</div>
+    </div>`;
+}
+
+function screenPortefeuille(){
+  return `<div class="screen">
+    <div class="segbar">
+      <div class="seg${state.mode === 'env' ? ' on' : ''}" data-act="mode" data-arg="env">Enveloppes</div>
+      <div class="seg${state.mode === 'rep' ? ' on' : ''}" data-act="mode" data-arg="rep">Répartition</div>
+    </div>
+    ${state.mode === 'env' ? modeEnveloppes() : modeRepartition()}
+  </div>`;
+}
+
+/* ============================================================
+   Écran Activité
+   ============================================================ */
+function screenOps(){
+  const all = snap?.operations || [];
+  const list = all.filter(o => state.filt === 'Tous' || o.compte === state.filt);
+  const chips = ['Tous', ...new Set(all.map(o => o.compte))]
+    .map(c => `<div class="chip${state.filt === c ? ' on' : ''}" data-act="filt" data-arg="${esc(c)}">${esc(c)}</div>`).join('');
+
+  const rows = list.map(o => {
+    const gain = o.type === 'Dividende';
+    return `
+    <div class="list-row">
+      <div class="ava" style="background:${gain ? 'var(--green-bg)' : 'var(--line2)'};color:${gain ? 'var(--green)' : 'var(--mut)'};width:36px;height:36px;font-size:15px">${OPICON[o.type] || '·'}</div>
+      <div class="grow">
+        <div class="ell" style="font-size:14px;font-weight:500">${esc(o.libelle)}</div>
+        <div style="font-size:12px;color:var(--mut2)">${o.dateFr || frDate(o.date)} · ${esc(o.compte)}</div>
+      </div>
+      <span class="mono ${gain ? 'pos' : ''}" style="font-size:14px;font-weight:500;white-space:nowrap;flex:none">${state.hide ? HIDDEN : sEur(o.montant)}</span>
+    </div>`;
+  }).join('');
+
+  const imports = snap?.imports || [];
+
+  return `<div class="screen">
+    <div class="chips">${chips}</div>
+    <div class="card tight">${rows || '<div class="empty">Aucune opération pour ce filtre.</div>'}</div>
+    <div class="card">
+      <div class="card-t">Derniers imports</div>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
+        ${imports.length ? imports.slice(0,4).map(i => `
+          <div style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:14px;padding:13px 14px;gap:10px">
+            <div class="grow"><div class="ell" style="font-size:14px;font-weight:500">${esc(i.file)}</div><div style="font-size:11px;color:var(--mut2)">${new Date(i.at).toLocaleDateString('fr-FR')} · ${esc(i.kind)}</div></div>
+            <span class="mono ${i.ok ? 'pos' : 'neg'}" style="font-size:12px;flex:none">${i.ok ? '✓' : '✕'} ${i.rows}</span>
+          </div>`).join('') : '<div class="empty">Aucun import.</div>'}
+        <div data-act="sheet" data-arg="1" style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:14px;padding:13px 14px;cursor:pointer">
+          <div style="display:flex;align-items:center;gap:10px"><div class="ava sm">+</div><div><div style="font-size:14px;font-weight:500">Importer un fichier</div><div style="font-size:11px;color:var(--mut2)">CSV ou XLSX</div></div></div>
+          <span style="font-size:13px;font-weight:600;color:var(--blue)">Ouvrir</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   Bottom sheet d'import
+   ============================================================ */
+function reportBox(){
+  if (state.importing) return `<div class="report busy"><span class="spin"></span>Import en cours…</div>`;
+  const r = state.report;
+  if (!r) return '';
+  if (r.error) return `<div class="report err"><strong>Import refusé.</strong><br>${esc(r.error)}</div>`;
+  const d = r.report;
+  const detail = d.kind === 'operations'
+    ? `${d.added} opération(s) ajoutée(s)${d.duplicates ? `, ${d.duplicates} doublon(s) ignoré(s)` : ''}`
+    : `${d.added} ligne(s) ajoutée(s), ${d.updated} mise(s) à jour${d.removed ? `, ${d.removed} soldée(s)` : ''}`;
+  return `<div class="report ok"><strong>${esc(d.file)} importé.</strong><br>${detail} · portefeuille revalorisé.</div>`;
+}
+
+function sheet(){
+  if (!state.sheet) return '';
+  return `
+  <div class="sheet-bg" data-act="sheet" data-arg="0">
+    <div class="sheet" data-act="stop">
+      <div class="grab"></div>
+      <div>
+        <div style="font-size:20px;font-weight:600;letter-spacing:-.3px">Importer des données</div>
+        <div style="font-size:13px;color:var(--mut);margin-top:3px">CSV ou export XLSX — opérations ou positions</div>
+      </div>
+      ${reportBox()}
+      <div class="drop" data-act="pick" data-drop="1">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 16V4M12 4L7.5 8.5M12 4l4.5 4.5M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" stroke="#0052ff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <div style="font-size:15px;font-weight:600">Choisir un fichier</div>
+        <div style="font-size:12px;color:var(--mut)">CSV, TSV ou XLSX · 10 Mo max</div>
+      </div>
+      <div class="code">
+        <div style="color:var(--ink);font-weight:600">Date;Compte;Type;Montant;Ticker</div>
+        <div>2026-07-17;PEA;ACHAT;-516,56;SU</div>
+      </div>
+      <button class="btn-p" data-act="sheet" data-arg="0">Fermer</button>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   Nav basse
+   ============================================================ */
+function nav(){
+  const item = (screen, label, path) => {
+    const on = state.screen === screen;
+    const col = on ? '#0a0b0d' : '#7c828a';
+    return `<button class="nav-item${on ? ' on' : ''}" data-act="screen" data-arg="${screen}">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none">${path.replace(/COLOR/g, col)}</svg>
+      <span>${label}</span>
+    </button>`;
+  };
+  return `<div class="nav">
+    ${item('accueil','Accueil','<path d="M4 10.5L12 4l8 6.5V20a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1v-9.5z" stroke="COLOR" stroke-width="1.7" stroke-linejoin="round"/>')}
+    ${item('portefeuille','Portefeuille','<circle cx="12" cy="12" r="8" stroke="COLOR" stroke-width="1.7"/><path d="M12 4v8l5.6 5.6" stroke="COLOR" stroke-width="1.7"/>')}
+    ${item('ops','Activité','<path d="M5 6h14M5 12h14M5 18h9" stroke="COLOR" stroke-width="1.7" stroke-linecap="round"/>')}
+  </div>`;
+}
+
+/* ============================================================
+   Rendu + interactions
+   ============================================================ */
+const SCREENS = { accueil:screenAccueil, portefeuille:screenPortefeuille, ops:screenOps };
+const app = document.getElementById('app');
+const picker = document.getElementById('picker');
+
+function render(){
+  if (!snap){
+    app.innerHTML = conn.status === 'offline'
+      ? `<div class="screen"><div class="card"><div class="card-t">Serveur injoignable</div>
+           <div style="font-size:13px;color:var(--mut);margin-top:6px">${esc(conn.error || '')}</div>
+           <div class="code" style="margin-top:14px">node server.js</div>
+           <button class="btn-p" style="margin-top:16px" data-act="retry">Réessayer</button></div></div>`
+      : `<div class="screen"><div class="card"><div class="empty"><span class="spin"></span>Chargement…</div></div></div>`;
+    return;
+  }
+  const scroll = app.querySelector('main')?.scrollTop || 0;
+  app.innerHTML = header() + `<main>${SCREENS[state.screen]()}</main>` + nav() + sheet();
+  const m = app.querySelector('main');
+  if (m) m.scrollTop = scroll;
+
+  app.querySelectorAll('[data-drop]').forEach(el => {
+    el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('over'); });
+    el.addEventListener('dragleave', () => el.classList.remove('over'));
+    el.addEventListener('drop', e => {
+      e.preventDefault(); el.classList.remove('over');
+      const f = e.dataTransfer?.files?.[0];
+      if (f) upload(f);
+    });
+  });
+}
+
+async function upload(file){
+  set({ importing:true, report:null });
+  try {
+    const res = await API.import(file);
+    state.report = res;
+    applySnapshot(res.snapshot);
+  } catch (e) {
+    state.report = { error:e.message };
+  } finally {
+    set({ importing:false });
+    render();
+  }
+}
+
+picker.addEventListener('change', () => {
+  const f = picker.files?.[0];
+  picker.value = '';
+  if (f) upload(f);
+});
+
+const ACTIONS = {
+  screen: v => set({ screen:v, seg:null }),
+  mode:   v => set({ mode:v, seg:null }),
+  env:    v => set({ screen:'portefeuille', mode:'env', env:v }),
+  scope:  v => set({ scope:v, seg:null }),
+  tab:    v => set({ tab:v, seg:null }),
+  filt:   v => set({ filt:v }),
+  seg:    v => set({ seg: state.seg === Number(v) ? null : Number(v) }),
+  hov:    v => set({ hov:Number(v) }),
+  sheet:  v => set({ sheet:v === '1', report:null }),
+  pick:   () => picker.click(),
+  retry:  () => boot(),
+  stop:   () => {},
+  hide:   () => { localStorage.setItem('hideAmounts', state.hide ? '0' : '1'); set({ hide: !state.hide }); }
+};
+
+app.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]');
+  if (!t) return;
+  const fn = ACTIONS[t.dataset.act];
+  if (fn) { e.stopPropagation(); fn(t.dataset.arg); }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && conn.status !== 'offline') API.perf().then(applySnapshot).catch(() => {});
+});
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/m/sw.js').catch(() => {});
+
+render();
+boot();
+</script>
+</body>
+</html>

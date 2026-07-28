@@ -1,0 +1,22 @@
+{
+  "name": "Patrimoine",
+  "short_name": "Patrimoine",
+  "description": "Suivi PEA, assurance vie et Livret A avec cotations en direct",
+  "lang": "fr",
+  "start_url": "/m/",
+  "scope": "/m/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f7f7f7",
+  "theme_color": "#ffffff",
+  "categories": ["finance", "productivity"],
+  "icons": [
+    { "src": "/m/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/m/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/m/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Importer un fichier", "url": "/m/?action=import" },
+    { "name": "Activité", "url": "/m/?screen=ops" }
+  ]
+}

@@ -1,0 +1,9 @@
+# Données personnelles — positions, PRU, soldes, journal d'opérations.
+# Le dépôt ne contient que les fichiers d'exemple (*.example.json).
+data/*.json
+!data/*.example.json
+
+node_modules/
+*.log
+.DS_Store
+Thumbs.db

@@ -1,0 +1,33 @@
+{
+  "_comment": "Portefeuille de démonstration. Copié en data/portfolio.json au premier lancement si absent. Remplace-le par tes propres imports (CSV / XLSX).",
+  "meta": {
+    "updatedAt": "2026-01-15",
+    "imports": []
+  },
+  "balances": {
+    "Livret A": { "value": 5000, "taux": 2.4, "plafond": 22950, "updatedAt": "2026-01-15" }
+  },
+  "cash": {
+    "PEA": 12.5
+  },
+  "plafonds": {
+    "PEA": 150000,
+    "Livret A": 22950
+  },
+  "positions": [
+    { "compte": "PEA", "name": "Air Liquide", "ticker": "AI", "isin": "FR0000120073", "symbol": "AI.PA", "qty": 4, "pru": 168.4, "price": 172.1, "cat": "Industrie & équipement" },
+    { "compte": "PEA", "name": "TotalEnergies", "ticker": "TTE", "isin": "FR0000120271", "symbol": "TTE.PA", "qty": 10, "pru": 58.2, "price": 60.4, "cat": "Énergie & utilities" },
+
+    { "compte": "Assurance Vie", "name": "Amundi Core S&P 500 Swap UCITS ETF Dist", "ticker": "", "isin": "LU2089238146", "symbol": "SP5.PA", "qty": 3, "pru": 65.1, "price": 67.4, "cat": "Actions Amérique" },
+    { "compte": "Assurance Vie", "name": "SPDR Bloomberg Euro Aggregate Bond", "ticker": "", "isin": "IE00B41RYL63", "symbol": "SYBA.DE", "qty": 5, "pru": 54.2, "price": 54.3, "cat": "Obligations EUR diversifiées" },
+    { "compte": "Assurance Vie", "name": "Fonds euro", "ticker": "", "isin": "", "manual": true, "qty": 200, "pru": 1, "price": 1, "cat": "Fonds euros" }
+  ],
+  "operations": [
+    { "date": "2026-01-10", "compte": "PEA", "type": "Achat", "libelle": "TotalEnergies", "ticker": "TTE", "isin": "", "montant": -582, "qty": 10, "price": 58.2 },
+    { "date": "2026-01-05", "compte": "PEA", "type": "Versement", "libelle": "Virement mensuel", "ticker": "", "isin": "", "montant": 600, "qty": null, "price": null },
+    { "date": "2025-12-15", "compte": "PEA", "type": "Dividende", "libelle": "Air Liquide — acompte", "ticker": "AI", "isin": "", "montant": 8.4, "qty": null, "price": null },
+    { "date": "2025-12-01", "compte": "Assurance Vie", "type": "Versement", "libelle": "Versement programmé", "ticker": "", "isin": "", "montant": 150, "qty": null, "price": null },
+    { "date": "2025-11-20", "compte": "PEA", "type": "Achat", "libelle": "Air Liquide", "ticker": "AI", "isin": "", "montant": -673.6, "qty": 4, "price": 168.4 },
+    { "date": "2025-11-02", "compte": "Assurance Vie", "type": "Ouverture", "libelle": "Versement initial", "ticker": "", "isin": "", "montant": 400, "qty": null, "price": null }
+  ]
+}

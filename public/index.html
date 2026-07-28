@@ -1,0 +1,1493 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Patrimoine &amp; Performance</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --blue:#0052ff; --blue-d:#003ecc; --blue-l:#4d84ff;
+  --green:#05b169; --red:#cf202f; --amber:#b7791f;
+  --ink:#0a0b0d; --mut:#5b616e; --mut2:#7c828a; --mut3:#a8acb3;
+  --line:#dee1e6; --line2:#eef0f3; --line3:#f2f3f5;
+  --bg:#f7f7f7; --white:#fff; --dark:#16181c; --dark-line:#2a2f37;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:Inter,-apple-system,system-ui,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+a{color:var(--blue);text-decoration:none}
+a:hover{color:var(--blue-d)}
+
+.shell{display:flex;min-height:100vh;align-items:stretch;min-width:1280px}
+
+/* ---------- sidebar ---------- */
+.side{width:244px;flex:none;background:var(--white);border-right:1px solid var(--line);padding:24px 16px;display:flex;flex-direction:column;gap:28px;position:sticky;top:0;height:100vh}
+.brand{display:flex;align-items:center;gap:10px;padding:0 8px}
+.brand-mark{width:28px;height:28px;border-radius:9999px;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:700}
+.brand-name{font-size:16px;font-weight:600;letter-spacing:-.2px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav-label{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--mut3);padding:0 8px 8px}
+.nav-label+.nav-label,.nav-item+.nav-label{padding-top:16px}
+.nav-item{position:relative;padding:10px 12px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:space-between}
+.nav-item:hover{background:var(--bg)}
+.nav-item.on{background:var(--line2)}
+.nav-item.on::before{content:"";position:absolute;left:0;top:8px;bottom:8px;width:3px;border-radius:2px;background:var(--blue)}
+.nav-item.on.root::before{display:none}
+.nav-item span{position:relative;font-size:14px;font-weight:500}
+.nav-item .amt{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--mut2);font-variant-numeric:tabular-nums}
+.side-foot{margin-top:auto;display:flex;flex-direction:column;gap:12px}
+.sync{background:var(--bg);border-radius:16px;padding:16px}
+.sync-t{font-size:12px;font-weight:600;margin-bottom:4px}
+.sync-b{font-size:12px;line-height:1.5;color:var(--mut2)}
+.link{font-size:13px;font-weight:600;color:var(--blue);cursor:pointer}
+.user{display:flex;align-items:center;gap:10px;padding:4px 8px}
+.avatar{width:32px;height:32px;border-radius:9999px;background:var(--line2);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--mut)}
+
+/* ---------- header ---------- */
+main{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{background:var(--white);border-bottom:1px solid var(--line);padding:18px 32px;display:flex;align-items:center;justify-content:space-between;gap:24px;position:sticky;top:0;z-index:20}
+.top h1{font-size:22px;font-weight:600;letter-spacing:-.4px;line-height:1.2;margin:0}
+.top-sub{display:flex;align-items:center;gap:8px;margin-top:4px;font-size:13px;color:var(--mut2)}
+.dot-g{width:6px;height:6px;border-radius:9999px;background:var(--green);display:inline-block}
+.dot-g.pulse{animation:pulse 2s ease-in-out infinite}
+.dot-g.warn{background:var(--amber)}
+.dot-g.off{background:var(--mut3)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.refresh{border:1px solid var(--line);background:var(--white);border-radius:100px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--mut);cursor:pointer;font-family:inherit}
+.refresh:hover{border-color:var(--mut3);color:var(--ink)}
+.refresh[disabled]{opacity:.5;cursor:default}
+.seg{display:flex;align-items:center;gap:4px;background:var(--bg);border-radius:100px;padding:4px}
+.seg-item{position:relative;padding:8px 16px;border-radius:100px;cursor:pointer;font-size:13px;font-weight:600;color:var(--ink)}
+.seg-item.sm{padding:7px 15px}
+.seg-item.on{background:var(--white);box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.btn{height:44px;padding:0 20px;border-radius:100px;font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px;cursor:pointer}
+.btn-p{background:var(--blue);color:#fff}
+.btn-p:hover{background:var(--blue-d)}
+.btn-s{background:var(--line2);color:var(--ink)}
+
+/* ---------- layout ---------- */
+.screen{padding:28px 32px 64px;display:flex;flex-direction:column;gap:20px;max-width:1360px;width:100%}
+.card{background:var(--white);border:1px solid var(--line);border-radius:24px;padding:24px}
+.card.lg{padding:28px 32px}
+.card-t{font-size:18px;font-weight:600;letter-spacing:-.2px}
+.card-s{font-size:13px;color:var(--mut2);margin-top:4px}
+.kpi-l{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mut2)}
+.kpi-v{font-family:var(--mono);font-weight:500;font-size:26px;letter-spacing:-.6px;margin-top:10px;font-variant-numeric:tabular-nums}
+.kpi-v.xl{font-size:34px;letter-spacing:-1px}
+.kpi-n{font-size:13px;color:var(--mut);margin-top:6px}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.pos{color:var(--green)}
+.neg{color:var(--red)}
+.muted{color:var(--mut2)}
+.grid{display:grid;gap:16px}
+.row-between{display:flex;align-items:baseline;justify-content:space-between;gap:24px}
+.head-block{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+.crumb{display:flex;align-items:center;gap:8px;font-size:14px}
+.crumb .up{font-weight:500;color:var(--mut);cursor:pointer}
+.crumb .sep{color:var(--mut3)}
+.crumb .cur{font-weight:600}
+.title-xl{font-size:32px;font-weight:400;letter-spacing:-.8px}
+.title-sub{font-size:14px;color:var(--mut);margin-top:4px}
+.tag{background:var(--line2);border-radius:100px;padding:4px 10px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink)}
+.live-dot{width:6px;height:6px;border-radius:9999px;display:inline-block;background:var(--green)}
+.stale{color:var(--mut3)}
+
+/* ---------- tables ---------- */
+.th{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mut2)}
+.th.r,.td.r{text-align:right}
+.tr{align-items:center;border-bottom:1px solid var(--bg)}
+.tr:hover{background:var(--bg)}
+.thead{border-bottom:1px solid var(--line);padding-bottom:10px}
+.thead.soft{border-bottom-color:var(--line2)}
+.empty{padding:28px;text-align:center;color:var(--mut2);font-size:14px}
+
+/* ---------- bars / misc ---------- */
+.track{height:6px;border-radius:3px;background:var(--line2)}
+.track .fill{height:100%;border-radius:3px;background:var(--blue)}
+.split{display:flex;border-radius:4px;overflow:hidden;gap:2px}
+.tabs{display:flex;gap:28px;margin-top:20px;border-bottom:1px solid var(--line)}
+.tab{padding-bottom:12px;cursor:pointer;position:relative;font-size:14px;font-weight:600;color:var(--mut2)}
+.tab.on{color:var(--ink)}
+.tab.on::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;background:var(--ink)}
+.legend{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut)}
+.legend .swatch{width:14px;height:2px;display:inline-block}
+.legend .sq{width:10px;height:10px;border-radius:2px;display:inline-block}
+.seg-row{display:flex;align-items:center;gap:12px;padding:9px 10px;border-radius:10px;cursor:pointer;background:transparent}
+.seg-row.on{background:var(--bg)}
+.dropzone{border:2px dashed var(--line);border-radius:16px;padding:28px 24px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;cursor:pointer;text-align:center;transition:border-color .12s,background .12s}
+.dropzone:hover,.dropzone.over{border-color:var(--blue);background:#f7f9ff}
+.conn{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.conn:hover{border-color:var(--mut3)}
+.enveloppe{cursor:pointer;display:flex;flex-direction:column;gap:16px}
+.enveloppe:hover{box-shadow:0 4px 12px rgba(0,0,0,.04);border-color:var(--mut3)}
+.tip{background:var(--dark);border-radius:12px;padding:14px 16px;min-width:236px;pointer-events:none;z-index:5;box-shadow:0 4px 12px rgba(0,0,0,.16)}
+.tip-l{display:flex;justify-content:space-between;gap:24px;margin-top:6px;font-size:13px;color:var(--mut3)}
+.tip-l .v{font-family:var(--mono);font-weight:500;color:#fff;white-space:nowrap}
+.tip-h{font-size:12px;font-weight:600;color:var(--mut3);letter-spacing:.04em;text-transform:uppercase}
+.panel-dark{background:var(--dark);border-radius:16px;padding:20px;display:flex;flex-direction:column}
+.alert{background:#f7f9ff;border:1px solid #cfdcff;border-radius:16px;padding:18px 20px;display:flex;gap:14px;align-items:flex-start;margin-top:24px}
+.alert .bang{width:22px;height:22px;border-radius:9999px;background:var(--blue);color:#fff;font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px}
+.overlay{position:fixed;inset:0;background:rgba(10,11,13,.55);display:flex;align-items:center;justify-content:center;z-index:60;padding:32px}
+.modal{background:var(--white);border-radius:24px;padding:32px;width:100%;max-width:640px;display:flex;flex-direction:column;gap:20px;max-height:90vh;overflow:auto}
+.close{width:32px;height:32px;border-radius:9999px;background:var(--line2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:16px;color:var(--mut)}
+.code{background:var(--bg);border-radius:12px;padding:14px;font-family:var(--mono);font-size:12px;line-height:1.8;color:var(--mut)}
+.report{border-radius:12px;padding:14px 16px;font-size:13px;line-height:1.6}
+.report.ok{background:#f0fdf6;border:1px solid #b9ecd2;color:#0a5c3a}
+.report.err{background:#fff5f5;border:1px solid #f3c9cd;color:#8c1620}
+.report.busy{background:var(--bg);border:1px solid var(--line);color:var(--mut)}
+.spin{display:inline-block;width:11px;height:11px;border:2px solid var(--mut3);border-top-color:transparent;border-radius:50%;animation:spin .7s linear infinite;vertical-align:-1px;margin-right:6px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;right:24px;bottom:24px;z-index:80;max-width:420px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<input type="file" id="picker" accept=".csv,.txt,.tsv,.xlsx,.xlsm" style="display:none">
+
+<script>
+"use strict";
+
+/* ============================================================
+   Configuration
+   ============================================================ */
+const CONFIG = {
+  defaultPeriod: 'Global',
+  showProjection: true,
+  showFiscalite: true,
+  pollMs: 60_000        // repli si le flux SSE n'est pas disponible
+};
+
+/* ============================================================
+   Données statiques
+   Non déductibles d'un export courtier : projections de dividendes,
+   look-through sectoriel des ETF, commentaires d'exposition.
+   ============================================================ */
+const PAL = ['#0052ff','#0a0b0d','#4d84ff','#5b616e','#99b7ff','#a8acb3','#c8ccd2','#dee1e6','#eef0f3'];
+const MLABEL = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
+const MSHORT = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+
+const SECTEURS = {
+  'Tout': [['Épargne réglementée',6686.68],['Industrie & équipement',577.04],['Technologie & logiciel',533.05],['Énergie & utilities',158.06],['Obligations & fonds euro',157.47],['Finance',47.27],['Consommation',40.52],['Santé',33.77],['Autres secteurs',50.66]],
+  'PEA': [['Industrie & équipement',539.90],['Logiciel & services IT',425.00],['Énergie & utilities',137.80],['Liquidités',5.00]],
+  'Assurance Vie': [['Obligations & fonds euro',157.47],['Technologie',108.05],['Finance',47.27],['Consommation',40.52],['Industrie',37.14],['Santé',33.77],['Énergie & utilities',20.26],['Autres secteurs',50.66]]
+};
+
+const NOTES = {
+  'Tout': {
+    titre:'Le Livret A représente à lui seul 80,7 % du patrimoine. Les trois actions du PEA pèsent 13,3 %.',
+    secteur:"Répartition sectorielle estimée par transparence sur les ETF — non recalculée à chaque cotation.",
+    classe:'Part garantie, actions et obligations recalculées à chaque cotation.'
+  },
+  'PEA': {
+    titre:'Trois lignes seulement — Schneider et Sidetrade concentrent l\'essentiel de l\'enveloppe.',
+    secteur:'Aucune diversification sectorielle : industrie, logiciel, utilities.',
+    classe:'Que des actions en direct, aucun ETF dans le PEA.'
+  },
+  'Assurance Vie': {
+    titre:'Neuf supports, mais les deux ETF S&P 500 pèsent près de la moitié du contrat.',
+    secteur:'Contrat équilibré entre poche obligataire et poche actions.',
+    classe:'ETF actions, obligations et fonds euro.'
+  }
+};
+
+const EXPO = {
+  'Tout': [
+    ['Schneider Electric',539.90,0.58,'En direct (PEA) + Vanguard FTSE Europe + MSCI World'],
+    ['Sidetrade',425.00,0,'En direct (PEA) uniquement'],
+    ['Engie',137.80,0.22,'En direct (PEA) + Vanguard FTSE Europe'],
+    ['NVIDIA',0,19.42,'Amundi S&P 500 ×2 + MSCI World'],
+    ['Microsoft',0,16.83,'Amundi S&P 500 ×2 + MSCI World'],
+    ['Apple',0,15.55,'Amundi S&P 500 ×2 + MSCI World'],
+    ['Amazon',0,9.84,'Amundi S&P 500 ×2 + MSCI World']
+  ],
+  'PEA': [
+    ['Schneider Electric',539.90,0,'En direct'],
+    ['Sidetrade',425.00,0,'En direct'],
+    ['Engie',137.80,0,'En direct']
+  ],
+  'Assurance Vie': [
+    ['NVIDIA',0,19.42,'Amundi S&P 500 ×2 + MSCI World'],
+    ['Microsoft',0,16.83,'Amundi S&P 500 ×2 + MSCI World'],
+    ['Apple',0,15.55,'Amundi S&P 500 ×2 + MSCI World'],
+    ['Amazon',0,9.84,'Amundi S&P 500 ×2 + MSCI World'],
+    ['Alphabet',0,8.95,'Amundi S&P 500 ×2 + MSCI World']
+  ]
+};
+
+const EXPO_META = {
+  'Tout': {
+    title:"L'exposition réelle aux marchés actions reste minoritaire",
+    body:"Le Livret A absorbe l'essentiel du patrimoine ; seules les lignes du PEA et les UC de l'assurance vie sont exposées aux marchés.",
+    overlap:'100 %', overlapNote:"Amundi Core S&P 500 et Amundi S&P 500 Daily Hedged suivent le même indice — l'un couvert en euro, l'autre non.",
+    top5:'95,6 %', top5Bar:95.6, top5Note:'Livret A, Schneider, Sidetrade, Engie et le SPDR obligataire cumulés.'
+  },
+  'PEA': {
+    title:'Trois lignes, aucune diversification',
+    body:'Aucun ETF dans le PEA : la performance dépend entièrement de Schneider Electric, Sidetrade et Engie. Sidetrade est une small cap Euronext Growth, peu liquide.',
+    overlap:'—', overlapNote:"Aucun fonds dans l'enveloppe : pas de chevauchement possible, mais aucune dilution du risque non plus.",
+    top5:'99,5 %', top5Bar:99.5, top5Note:'Les trois lignes hors liquidités.'
+  },
+  'Assurance Vie': {
+    title:'Deux ETF pour un seul indice',
+    body:"Amundi Core S&P 500 et Amundi S&P 500 Daily Hedged suivent le même panier. Avec le MSCI World, l'exposition américaine dépasse la moitié du contrat.",
+    overlap:'100 %', overlapNote:'Le S&P 500 pèse aussi 71 % du MSCI World : trois supports se recouvrent largement.',
+    top5:'87,3 %', top5Bar:87.3, top5Note:'Les cinq plus gros supports du contrat sur neuf.'
+  }
+};
+
+/** Dividendes : versements passés = réels (API) ; mois à venir = estimation annoncée. */
+const DIV_EST = {
+  2026: {
+    months:[0,0,0,0,5,0,0,0,0,2.15,0,160.36], max:170,
+    lines:[[],[],[],[],[['Engie — solde 2025','5,00 €']],[],[],[],[],[['Engie — acompte 2026','2,15 €']],[],[['Intérêts Livret A','160,36 €']]],
+    estime:'167,51 €', yieldS:'2,06 %', next:'Engie · 16 octobre',
+    compare:'2027 estimé : 178,95 € avec Schneider en année pleine',
+    summary:'Engie versé en mai · Livret A crédité au 31/12',
+    top:[{name:'Intérêts Livret A (est.)',amount:'160,36 €'},{name:'Engie — solde 2025',amount:'5,00 €'},{name:'Engie — acompte 2026 (est.)',amount:'2,15 €'},{name:'Schneider Electric',amount:'0,00 €'},{name:'Sidetrade — ne verse pas',amount:'—'}]
+  },
+  2027: {
+    months:[0,0,0,0,12.8,0,0,0,0,2.15,0,164], max:170,
+    lines:[[],[],[],[],[['Schneider Electric','7,80 €'],['Engie — solde 2026','5,00 €']],[],[],[],[],[['Engie — acompte 2027','2,15 €']],[],[['Intérêts Livret A','164,00 €']]],
+    estime:'178,95 €', yieldS:'2,16 %', next:'Schneider · mai 2027',
+    compare:'Première année pleine pour Schneider Electric',
+    summary:'Projection sur les dividendes annoncés',
+    top:[{name:'Intérêts Livret A',amount:'164,00 €'},{name:'Schneider Electric',amount:'7,80 €'},{name:'Engie — solde',amount:'5,00 €'},{name:'Engie — acompte',amount:'2,15 €'}]
+  }
+};
+
+/* ============================================================
+   Formatage
+   ============================================================ */
+const eur  = n => (n ?? 0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2}) + ' €';
+const eur0 = n => Math.round(n ?? 0).toLocaleString('fr-FR') + ' €';
+const pctS = n => (n ?? 0).toLocaleString('fr-FR',{minimumFractionDigits:1,maximumFractionDigits:1}) + ' %';
+const num2 = n => Math.abs(n ?? 0).toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+const sgn  = n => n > 0 ? '+' : (n < 0 ? '−' : '');
+const sEur = n => sgn(n) + num2(n) + ' €';
+const sPct = n => sgn(n) + num2(n) + ' %';
+const cls  = n => n > 0 ? 'pos' : (n < 0 ? 'neg' : '');
+const esc  = s => String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const monoOf = name => (name || '?').replace(/[^A-Za-zÀ-ÿ ]/g,'').split(/\s+/).map(w => w[0]).join('').slice(0,2).toUpperCase();
+const frDate = s => s ? s.slice(8) + '/' + s.slice(5,7) : '';
+const monthLabel = s => s ? MSHORT[Number(s.slice(5,7))-1] + ' ' + s.slice(0,4) : '';
+const monthLong  = s => s ? MLABEL[Number(s.slice(5,7))-1].toLowerCase() + ' ' + s.slice(0,4) : '';
+
+/* ============================================================
+   État
+   ============================================================ */
+const state = {
+  view:'global', period:CONFIG.defaultPeriod, modal:false, filt:'Tous',
+  hov:null, year:2026, dHov:null, env:'Tout', tab:'titre', seg:null,
+  importing:false, report:null
+};
+
+let snap = null;                                   // dernière valorisation reçue
+let conn = { status:'connecting', at:null, error:null };
+
+function set(patch){
+  let changed = false;
+  for (const k in patch) if (state[k] !== patch[k]) { state[k] = patch[k]; changed = true; }
+  if (changed) render();
+}
+
+/* ============================================================
+   Couche API
+   ============================================================ */
+const API = {
+  async perf(){
+    const r = await fetch('/api/perf');
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    return r.json();
+  },
+  async refresh(){
+    const r = await fetch('/api/refresh', { method:'POST' });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `HTTP ${r.status}`);
+    return r.json();
+  },
+  async import(file){
+    const r = await fetch('/api/import', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/octet-stream', 'X-File-Name':encodeURIComponent(file.name) },
+      body:file
+    });
+    const j = await r.json().catch(() => ({ error:`HTTP ${r.status}` }));
+    if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+    return j;
+  }
+};
+
+function applySnapshot(s){
+  snap = s;
+  conn = { status: s.quotes?.failed?.length ? 'partial' : 'live', at: Date.now(), error: null };
+  render();
+}
+
+/** Flux SSE, avec repli sur du polling si indisponible. */
+function connect(){
+  let poll = null;
+  const startPolling = () => {
+    if (poll) return;
+    poll = setInterval(async () => {
+      try { applySnapshot(await API.perf()); }
+      catch (e) { conn = { status:'offline', at:conn.at, error:e.message }; render(); }
+    }, CONFIG.pollMs);
+  };
+
+  try {
+    const es = new EventSource('/api/stream');
+    es.addEventListener('perf', e => { if (poll) { clearInterval(poll); poll = null; } applySnapshot(JSON.parse(e.data)); });
+    es.addEventListener('error', () => { conn = { status:'offline', at:conn.at, error:'flux interrompu' }; render(); startPolling(); });
+  } catch {
+    startPolling();
+  }
+}
+
+async function boot(){
+  try {
+    applySnapshot(await API.perf());
+  } catch (e) {
+    conn = { status:'offline', at:null, error:e.message };
+    render();
+    return;
+  }
+  connect();
+}
+
+/* ============================================================
+   Sélecteurs sur l'instantané
+   ============================================================ */
+const T = () => snap?.totals || {};
+const compte = name => snap?.comptes?.[name] || { value:0, mise:0, pv:0, pvPct:0, lines:[], cash:0 };
+const hist = () => (snap?.history || []);
+
+/** Performance sur la période : variation de la plus-value latente. */
+function perfPeriod(period){
+  const h = hist();
+  if (h.length < 2) return [sEur(T().pv || 0), sPct(T().pvPct || 0)];
+  const last = h[h.length - 1];
+  if (period === 'Global') return [sEur(last.val - last.cap), sPct(last.cap ? (last.val - last.cap) / last.cap * 100 : 0)];
+
+  const days = { Mensuel:31, Trimestriel:92, Annuel:365 }[period] || 365;
+  const cutoff = new Date(Date.parse(last.date) - days * 86400000).toISOString().slice(0,10);
+  const base = h.filter(p => p.date <= cutoff).pop() || h[0];
+  const gain = (last.val - last.cap) - (base.val - base.cap);
+  return [sEur(gain), sPct(last.cap ? gain / last.cap * 100 : 0)];
+}
+
+/** Série d'un compte : historique réel si disponible, sinon droite début → aujourd'hui. */
+function serieFor(name){
+  const h = hist();
+  const withCompte = h.filter(p => p.comptes && p.comptes[name]);
+  if (withCompte.length >= 2) return withCompte.map(p => ({ date:p.date, cap:p.comptes[name].mise, val:p.comptes[name].value }));
+
+  const c = compte(name);
+  const ops = (snap?.operations || []).filter(o => o.compte === name);
+  const first = ops.length ? ops[ops.length - 1].date : (h[0]?.date || null);
+  if (!first) return [];
+  return [{ date:first, cap:0, val:0 }, { date:h[h.length-1]?.date || first, cap:c.mise, val:c.value }];
+}
+
+/* ============================================================
+   Graphe : série → chemins SVG
+   ============================================================ */
+function chart(points, W, H, pad = 12){
+  if (points.length < 2) return null;
+  const vals = points.flatMap(p => [p.val, p.cap]);
+  let min = Math.min(...vals), max = Math.max(...vals);
+  if (max === min) { max += 1; min -= 1; }
+  const span = max - min;
+  min -= span * 0.12; max += span * 0.12;
+
+  const x = i => i * W / (points.length - 1);
+  const y = v => pad + (max - v) / (max - min) * (H - 2 * pad);
+
+  const line = key => points.map((p,i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p[key]).toFixed(1)}`).join(' ');
+  const area = line('val') + ' ' + points.map((p,i) => `L${x(points.length-1-i).toFixed(1)},${y(points[points.length-1-i].cap).toFixed(1)}`).join(' ') + ' Z';
+
+  return {
+    valPath:line('val'), capPath:line('cap'), areaPath:area,
+    x, y, points,
+    lastX:x(points.length - 1), lastY:y(points[points.length - 1].val)
+  };
+}
+
+/* ============================================================
+   Fragments
+   ============================================================ */
+function segControl(items, active, act){
+  return `<div class="seg">` + items.map(it =>
+    `<div class="seg-item${it.small ? ' sm' : ''}${it.value === active ? ' on' : ''}" data-act="${act}" data-arg="${esc(it.value)}">${esc(it.label)}</div>`
+  ).join('') + `</div>`;
+}
+
+const uploadIcon = (size, stroke) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none"><path d="M12 16V4M12 4L7.5 8.5M12 4l4.5 4.5M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" stroke="${stroke}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+function statusLine(){
+  const q = snap?.quotes;
+  if (conn.status === 'offline') return { dot:'off', text:`Hors ligne — ${esc(conn.error || 'serveur injoignable')} · lance <span class="mono">node server.js</span>` };
+  if (!snap) return { dot:'off', text:'Connexion au serveur…' };
+  const age = conn.at ? Math.max(0, Math.round((Date.now() - conn.at) / 1000)) : null;
+  const when = age == null ? '' : (age < 90 ? `il y a ${age} s` : `il y a ${Math.round(age/60)} min`);
+  const failed = q?.failed?.length || 0;
+  const total = (snap.lines || []).length;
+  if (failed) return { dot:'warn', text:`${total - failed}/${total} cotations à jour · ${failed} en repli sur le dernier cours connu · ${when}` };
+  return { dot:'pulse', text:`Cotations ${esc(q?.provider || 'live')} · ${total} lignes à jour ${when}` };
+}
+
+/* ---------- sidebar ---------- */
+function sidebar(){
+  const pea = compte('PEA'), av = compte('Assurance Vie'), la = compte('Livret A');
+  const item = (view, label, amount, klass, root) =>
+    `<div class="nav-item${state.view === view ? ' on' : ''}${root ? ' root' : ''}" data-act="view" data-arg="${view}">
+       <span>${label}</span><span class="amt ${klass || ''}">${amount}</span>
+     </div>`;
+  const lastImport = snap?.imports?.[0];
+  return `
+  <aside class="side">
+    <div class="brand"><div class="brand-mark">P</div><div class="brand-name">Patrimoine</div></div>
+    <nav class="nav">
+      <div class="nav-label">Vue</div>
+      ${item('global','Vue globale', eur0(T().patrimoine), '', true)}
+      <div class="nav-label">Enveloppes</div>
+      ${item('pea','PEA', sPct(pea.pvPct), cls(pea.pvPct))}
+      ${item('av','Assurance Vie', sPct(av.pvPct), cls(av.pvPct))}
+      ${item('livret','Livret A', eur0(la.value), '')}
+      <div class="nav-label">Données</div>
+      ${item('ops','Opérations', String((snap?.operations || []).length), '')}
+    </nav>
+    <div class="side-foot">
+      <div class="sync">
+        <div class="sync-t">Synchronisation</div>
+        <div class="sync-b">${Object.keys(snap?.comptes || {}).length} comptes suivis${lastImport ? ` · dernier import ${esc(lastImport.file)}` : ''}</div>
+        <div class="link" style="margin-top:12px" data-act="modal" data-arg="1">Gérer les imports →</div>
+      </div>
+      <a class="link" href="/m/" style="padding:0 8px">App mobile (Android) →</a>
+      <div class="user">
+        <div class="avatar">VM</div>
+        <div><div style="font-size:13px;font-weight:600">Valentin Meslin</div><div style="font-size:12px;color:var(--mut2)">Plan gratuit</div></div>
+      </div>
+    </div>
+  </aside>`;
+}
+
+/* ---------- header ---------- */
+function header(){
+  const s = statusLine();
+  return `
+  <header class="top">
+    <div>
+      <h1>Patrimoine &amp; Performance</h1>
+      <div class="top-sub">
+        <span class="dot-g ${s.dot}"></span><span>${s.text}</span>
+        <button class="refresh" data-act="refreshNow" ${state.importing ? 'disabled' : ''}>Actualiser</button>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:16px">
+      ${segControl([
+        {value:'Mensuel',label:'Mensuel'},{value:'Trimestriel',label:'Trimestriel'},
+        {value:'Annuel',label:'Annuel'},{value:'Global',label:'Global'}
+      ], state.period, 'period')}
+      <div class="btn btn-p" data-act="modal" data-arg="1">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 11V2M8 2L4.5 5.5M8 2l3.5 3.5M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Importer des données
+      </div>
+    </div>
+  </header>`;
+}
+
+/* ============================================================
+   Vue globale
+   ============================================================ */
+function kpiRow(){
+  const t = T();
+  const h = hist();
+  const spark = chart(h.slice(-24).map(p => ({ val:p.val, cap:p.cap })), 240, 34, 3);
+  const day = t.dayChange;
+  return `
+  <div class="grid" style="grid-template-columns:1.4fr 1fr 1fr 1fr 1fr">
+    <div class="card">
+      <div class="kpi-l">Patrimoine total</div>
+      <div class="kpi-v xl">${eur(t.patrimoine)}</div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:8px">
+        <span class="mono ${cls(t.pv)}" style="font-size:14px;font-weight:500">${sEur(t.pv)}</span>
+        <span style="font-size:13px;color:var(--mut2)">${t.premiereOperation ? 'depuis ' + monthLong(t.premiereOperation) : 'depuis le début du suivi'}</span>
+      </div>
+      ${spark ? `<svg width="100%" height="34" viewBox="0 0 240 34" preserveAspectRatio="none" style="margin-top:12px;display:block"><path d="${spark.valPath}" fill="none" stroke="${(t.pv||0) >= 0 ? '#05b169' : '#cf202f'}" stroke-width="1.6" stroke-linejoin="round"/></svg>` : ''}
+    </div>
+    <div class="card">
+      <div class="kpi-l">Capital investi</div><div class="kpi-v">${eur(t.capital)}</div>
+      <div class="kpi-n">Livret A inclus · ${t.moisSuivis || 0} mois de suivi</div>
+    </div>
+    <div class="card">
+      <div class="kpi-l">Plus-value totale</div><div class="kpi-v ${cls(t.pv)}">${sEur(t.pv)}</div>
+      <div style="display:inline-flex;align-items:center;gap:4px;margin-top:8px;background:var(--line2);border-radius:100px;padding:4px 10px">
+        <span class="mono ${cls(t.pv)}" style="font-size:12px;font-weight:600">${t.pv >= 0 ? '▲' : '▼'} ${sPct(t.pvPct)}</span>
+      </div>
+      ${day ? `<div class="kpi-n">Variation du jour <span class="mono ${cls(day)}">${sEur(day)}</span></div>` : ''}
+    </div>
+    <div class="card">
+      <div class="kpi-l">Part investie en bourse</div><div class="kpi-v">${pctS(t.partBourse)}</div>
+      <div class="kpi-n">${pctS(100 - (t.partBourse || 0))} en épargne garantie</div>
+    </div>
+    <div class="card">
+      <div class="kpi-l">Épargne du mois</div><div class="kpi-v">${sEur(t.epargneMois || 0)}</div>
+      <div class="kpi-n">Moyenne ${eur0(t.epargneMoyenne || 0)}/mois versés</div>
+    </div>
+  </div>`;
+}
+
+function chartCard(){
+  const pts = hist().slice(-24);
+  const c = chart(pts, 720, 214, 24);
+  if (!c) return `<div class="card lg"><div class="card-t">Mise vs gains</div><div class="empty">Historique insuffisant — il se construit à chaque valorisation.</div></div>`;
+
+  const hi = state.hov;
+  const zones = pts.map((p,i) => {
+    const w = 100 / pts.length;
+    return `<div data-hover="hov" data-hval="${i}" style="position:absolute;top:0;bottom:0;left:${Math.max(0, c.x(i)/720*100 - w/2)}%;width:${w}%"></div>`;
+  }).join('');
+
+  let tip = '';
+  if (hi !== null && pts[hi]){
+    const p = pts[hi], prev = pts[hi-1];
+    const hx = c.x(hi) / 720 * 100, hy = c.y(p.val) / 214 * 100;
+    const tx = hi < 2 ? '-6%' : (hi > pts.length - 3 ? '-94%' : '-50%');
+    const ty = hy > 60 ? 'calc(-100% - 14px)' : '14px';
+    const gain = p.val - p.cap;
+    const flux = prev ? p.cap - prev.cap : p.cap;
+    tip = `
+      <div style="position:absolute;top:0;bottom:0;left:${hx}%;width:1px;background:var(--line);pointer-events:none"></div>
+      <div style="position:absolute;left:${hx}%;top:${hy}%;width:9px;height:9px;border-radius:9999px;background:var(--green);border:2px solid #fff;transform:translate(-50%,-50%);pointer-events:none"></div>
+      <div class="tip" style="position:absolute;left:${hx}%;top:${hy}%;transform:translate(${tx},${ty})">
+        <div class="tip-h">${monthLong(p.date)}</div>
+        <div class="tip-l" style="margin-top:10px"><span>Patrimoine</span><span class="v">${eur(p.val)}</span></div>
+        <div class="tip-l"><span>Capital versé</span><span class="v">${eur(p.cap)}</span></div>
+        <div class="tip-l" style="padding-top:8px;border-top:1px solid var(--dark-line)"><span>Gains</span><span class="v ${cls(gain)}" style="font-weight:600">${sEur(gain)}</span></div>
+        <div class="tip-l"><span>Performance</span><span class="v ${cls(gain)}" style="font-weight:600">${sPct(p.cap ? gain/p.cap*100 : 0)}</span></div>
+        <div class="tip-l"><span>Versé ce mois</span><span class="v">${flux ? sEur(flux) : 'aucun versement'}</span></div>
+      </div>`;
+  }
+
+  const t = T();
+  const gainPct = t.capital ? t.pv / t.capital * 100 : 0;
+  const axis = [0, Math.floor(pts.length/3), Math.floor(2*pts.length/3), pts.length-1]
+    .filter((v,i,a) => a.indexOf(v) === i).map(i => `<span>${monthLabel(pts[i].date)}</span>`).join('');
+
+  return `
+  <div class="card lg">
+    <div class="row-between">
+      <div class="card-t">Mise vs gains</div>
+      <span style="font-size:13px;color:var(--mut2)">Sur ${eur0(t.capital)} versés, ${sEur(t.pv)} produits par le portefeuille</span>
+    </div>
+    <div style="position:relative;margin-top:22px">
+      <svg width="100%" height="200" viewBox="0 0 720 214" preserveAspectRatio="none" style="display:block">
+        <line x1="0" y1="53" x2="720" y2="53" stroke="#eef0f3"/><line x1="0" y1="111" x2="720" y2="111" stroke="#eef0f3"/><line x1="0" y1="169" x2="720" y2="169" stroke="#eef0f3"/>
+        <path d="${c.areaPath}" fill="${t.pv >= 0 ? '#05b169' : '#cf202f'}" fill-opacity="0.12"/>
+        <path d="${c.capPath}" fill="none" stroke="#a8acb3" stroke-width="2" stroke-dasharray="5 4"/>
+        <path d="${c.valPath}" fill="none" stroke="${t.pv >= 0 ? '#05b169' : '#cf202f'}" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="${c.lastX - 4}" cy="${c.lastY}" r="4" fill="${t.pv >= 0 ? '#05b169' : '#cf202f'}"></circle>
+      </svg>
+      <div data-leave="hov" style="position:absolute;inset:0">${zones}${tip}</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:8px;margin-bottom:4px;font-size:11px;color:var(--mut2)">${axis}</div>
+    <div style="display:flex;height:44px;border-radius:10px;overflow:hidden;gap:2px;margin-top:16px">
+      <div style="flex:${Math.max(1, t.capital)};background:var(--line2);display:flex;align-items:center;padding-left:16px"><span class="mono" style="font-size:14px;font-weight:500;white-space:nowrap">${eur(t.capital)}</span></div>
+      <div style="flex:${Math.max(1, Math.abs(t.pv))};background:${t.pv >= 0 ? 'var(--green)' : 'var(--red)'};display:flex;align-items:center;justify-content:center"><span class="mono" style="font-size:13px;font-weight:600;color:#fff;white-space:nowrap">${sEur(t.pv)}</span></div>
+    </div>
+    <div style="display:flex;gap:24px;margin-top:14px">
+      <div class="legend"><span class="swatch" style="background:var(--mut3)"></span><span>Capital versé · ${pctS(100 - gainPct)}</span></div>
+      <div class="legend"><span class="swatch" style="background:${t.pv >= 0 ? 'var(--green)' : 'var(--red)'}"></span><span>Patrimoine · gains ${pctS(gainPct)}</span></div>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(4,1fr);gap:24px;margin-top:24px;padding-top:22px;border-top:1px solid var(--line2)">
+      <div><div style="font-size:13px;color:var(--mut2)">Plus-values latentes</div><div class="mono ${cls(t.pv)}" style="font-size:20px;font-weight:500;margin-top:4px;white-space:nowrap">${sEur(t.pv)}</div></div>
+      <div><div style="font-size:13px;color:var(--mut2)">Variation du jour</div><div class="mono ${cls(t.dayChange)}" style="font-size:20px;font-weight:500;margin-top:4px;white-space:nowrap">${t.dayChange == null ? '—' : sEur(t.dayChange)}</div></div>
+      <div><div style="font-size:13px;color:var(--mut2)">Dividendes encaissés</div><div class="mono pos" style="font-size:20px;font-weight:500;margin-top:4px;white-space:nowrap">${sEur(divTotalRealized())}</div></div>
+      <div><div style="font-size:13px;color:var(--mut2)">100 € versés valent</div><div class="mono" style="font-size:20px;font-weight:500;margin-top:4px;white-space:nowrap">${eur(100 + gainPct)}</div></div>
+    </div>
+  </div>`;
+}
+
+/* ---------- dividendes : réel (API) + estimations (statique) ---------- */
+function divTotalRealized(){
+  const d = snap?.dividends || {};
+  return Object.values(d).reduce((s, y) => s + (y.total || 0), 0);
+}
+
+function divModel(year){
+  const est = DIV_EST[year] || { months:Array(12).fill(0), lines:Array.from({length:12},()=>[]), max:1, top:[], estime:'—', yieldS:'—', next:'—', compare:'', summary:'' };
+  const real = snap?.dividends?.[year];
+  const months = est.months.slice();
+  const lines = est.lines.map(l => l.slice());
+  let lastPaid = -1;
+
+  if (real){
+    real.months.forEach((v,i) => {
+      if (v > 0){ months[i] = v; lines[i] = real.lines[i]; lastPaid = Math.max(lastPaid, i); }
+    });
+  }
+  const percu = real ? real.total : 0;
+  const capital = T().capital || 0;
+  return {
+    months, lines, lastPaid, max: Math.max(est.max, ...months),
+    percu: sEur(percu).replace('+',''),
+    estime: est.estime, yieldS: est.yieldS, next: est.next,
+    compare: est.compare, summary: est.summary, top: est.top
+  };
+}
+
+function dividendCard(){
+  const div = divModel(state.year);
+  const dh = state.dHov;
+
+  const bars = div.months.slice(0,12).map((val,i) => {
+    const paid = i <= div.lastPaid && val > 0;
+    const hgt = val === 0 ? 0 : Math.max(3, val / div.max * 100);
+    const style = [
+      'width:100%', `height:${hgt}%`, `min-height:${val === 0 ? '2px' : '0px'}`,
+      'border-radius:4px 4px 0 0',
+      `background:${val === 0 ? 'var(--line)' : (paid ? 'var(--green)' : '#ffffff')}`,
+      `border:${val === 0 ? 'none' : (paid ? 'none' : '1.5px dashed #a8acb3')}`,
+      `opacity:${(dh === null || dh === i) ? 1 : 0.4}`, 'transition:opacity .12s'
+    ].join(';');
+    return `<div data-hover="dHov" data-hval="${i}" style="height:100%;display:flex;align-items:flex-end;cursor:pointer"><div style="${style}"></div></div>`;
+  }).join('');
+
+  const tipMonth = dh === null ? 'Année ' + state.year : MLABEL[dh] + ' ' + state.year;
+  const tipTotal = dh === null ? div.estime : eur(div.months[dh]);
+  const tipStatus = dh === null ? div.summary
+    : (dh <= div.lastPaid && div.months[dh] > 0 ? 'Versement encaissé'
+    : (div.months[dh] === 0 ? 'Aucun versement attendu ce mois-ci' : 'Estimation sur la base des dividendes annoncés'));
+  const tipLines = dh === null ? div.top
+    : (div.lines[dh]?.length ? div.lines[dh].map(l => ({ name:l[0], amount: typeof l[1] === 'number' ? eur(l[1]) : l[1] })) : [{ name:'Aucun versement', amount:'—' }]);
+  const cumul = dh === null ? div.percu : eur(div.months.slice(0, dh+1).reduce((a,b) => a+b, 0));
+
+  return `
+  <div class="card lg">
+    <div class="head-block">
+      <div>
+        <div class="card-t">Dividendes, coupons &amp; intérêts</div>
+        <div class="card-s">Versements encaissés issus des opérations importées · mois à venir estimés</div>
+      </div>
+      ${segControl([{value:'2026',label:'2026',small:true},{value:'2027',label:'2027 estimé',small:true}], String(state.year), 'year')}
+    </div>
+    <div style="display:flex;gap:40px;margin-top:20px">
+      <div><div style="font-size:13px;color:var(--mut2)">Perçu à ce jour</div><div class="mono pos" style="font-size:24px;font-weight:500;margin-top:4px;white-space:nowrap">${div.percu}</div></div>
+      <div><div style="font-size:13px;color:var(--mut2)">Estimé sur l'année</div><div class="mono" style="font-size:24px;font-weight:500;margin-top:4px;white-space:nowrap">${div.estime}</div></div>
+      <div><div style="font-size:13px;color:var(--mut2)">Rendement sur capital</div><div class="mono" style="font-size:24px;font-weight:500;margin-top:4px;white-space:nowrap">${div.yieldS}</div></div>
+      <div><div style="font-size:13px;color:var(--mut2)">Prochain versement</div><div style="font-size:15px;font-weight:600;margin-top:8px;white-space:nowrap">${div.next}</div></div>
+    </div>
+    <div class="grid" style="grid-template-columns:1fr 264px;gap:24px;margin-top:24px;align-items:stretch">
+      <div data-leave="dHov">
+        <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:10px;align-items:end;height:190px;border-bottom:1px solid var(--line)">${bars}</div>
+        <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:10px;margin-top:8px">
+          ${['J','F','M','A','M','J','J','A','S','O','N','D'].map(m => `<span style="font-size:11px;color:var(--mut2);text-align:center">${m}</span>`).join('')}
+        </div>
+        <div style="display:flex;gap:24px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line2)">
+          <div class="legend"><span class="sq" style="background:var(--green)"></span><span>Perçu</span></div>
+          <div class="legend"><span class="sq" style="background:#fff;border:1.5px dashed var(--mut3)"></span><span>Estimé</span></div>
+          <span style="font-size:13px;color:var(--mut2);margin-left:auto">${div.compare}</span>
+        </div>
+      </div>
+      <div class="panel-dark">
+        <div class="tip-h">${tipMonth}</div>
+        <div class="mono" style="font-size:26px;font-weight:500;color:#fff;margin-top:8px;letter-spacing:-.5px;white-space:nowrap">${tipTotal}</div>
+        <div style="font-size:12px;color:var(--mut3);margin-top:4px;line-height:1.45">${tipStatus}</div>
+        <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
+          ${tipLines.map(l => `<div style="display:flex;justify-content:space-between;gap:16px"><span style="font-size:13px;color:var(--mut3)">${esc(l.name)}</span><span class="mono" style="font-size:13px;font-weight:500;color:#fff;white-space:nowrap">${esc(l.amount)}</span></div>`).join('')}
+        </div>
+        <div style="margin-top:auto;padding-top:16px;display:flex;justify-content:space-between;gap:16px;border-top:1px solid var(--dark-line)">
+          <span style="font-size:13px;color:var(--mut3)">${dh === null ? 'Perçu à ce jour' : 'Cumul depuis janvier'}</span>
+          <span class="mono pos" style="font-size:13px;font-weight:600;white-space:nowrap">${cumul}</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ---------- répartition ---------- */
+function allocRows(){
+  const a = snap?.allocation || { titre:[], classe:[] };
+  if (state.tab === 'secteur') return SECTEURS[state.env] || [];
+  if (state.env === 'Tout') return state.tab === 'classe' ? a.classe : a.titre;
+
+  const c = compte(state.env);
+  const lines = c.lines.map(l => [l.name, l.value, l.classe]);
+  if (c.cash) lines.push(['Liquidités', c.cash, 'Liquidités']);
+  if (state.tab === 'classe'){
+    const by = {};
+    for (const [, v, k] of lines) by[k] = (by[k] || 0) + v;
+    return Object.entries(by).sort((x,y) => y[1] - x[1]).map(([k,v]) => [k, Math.round(v*100)/100]);
+  }
+  return lines.map(([n,v]) => [n, v]).sort((x,y) => y[1] - x[1]);
+}
+
+function allocationCard(){
+  const rows = allocRows();
+  const total = rows.reduce((s,r) => s + r[1], 0) || 1;
+  const sh = state.seg;
+  const meta = EXPO_META[state.env];
+
+  let cum = 0;
+  const segs = rows.map((r,i) => {
+    const pc = r[1] / total * 100;
+    const start = cum; cum += pc;
+    return {
+      i, color:PAL[i % PAL.length], w: sh === i ? 6.6 : 5.4,
+      dash: Math.max(0.1, pc - 0.4).toFixed(2) + ' ' + (100 - pc + 0.4).toFixed(2),
+      off: (25 - start).toFixed(2),
+      label:r[0], pct:pctS(Math.round(pc*10)/10), amount:eur0(r[1]), pc, active: sh === i
+    };
+  });
+
+  const tabs = [['titre','Par ligne'],['secteur','Par secteur'],['classe',"Par classe d'actifs"],['expo','Exposition réelle']]
+    .map(([v,l]) => `<div class="tab${state.tab === v ? ' on' : ''}" data-act="tab" data-arg="${v}">${l}</div>`).join('');
+
+  let body;
+  if (state.tab !== 'expo'){
+    const arcs = segs.map(s => `<circle cx="21" cy="21" r="15.9" fill="none" stroke="${s.color}" stroke-width="${s.w}" stroke-dasharray="${s.dash}" stroke-dashoffset="${s.off}" data-hover="seg" data-hval="${s.i}" style="cursor:pointer"></circle>`).join('');
+    const list = segs.map(s => `
+      <div class="seg-row${s.active ? ' on' : ''}" data-hover="seg" data-hval="${s.i}">
+        <span class="sq" style="width:10px;height:10px;border-radius:2px;background:${s.color};display:inline-block;flex:none"></span>
+        <span style="font-size:14px;font-weight:500;flex:1">${esc(s.label)}</span>
+        <div style="width:120px;height:6px;border-radius:3px;background:var(--line3)"><div style="width:${Math.max(2,s.pc)}%;height:100%;border-radius:3px;background:${s.color}"></div></div>
+        <span class="mono" style="font-size:14px;font-weight:500;width:64px;text-align:right;white-space:nowrap">${s.pct}</span>
+        <span class="mono" style="font-size:14px;color:var(--mut);width:104px;text-align:right;white-space:nowrap">${s.amount}</span>
+      </div>`).join('');
+
+    body = `
+      <div class="grid" style="grid-template-columns:260px 1fr;gap:40px;align-items:center;margin-top:28px">
+        <div data-leave="seg" style="position:relative;width:236px;height:236px">
+          <svg width="236" height="236" viewBox="0 0 42 42" style="display:block">
+            <circle cx="21" cy="21" r="15.9" fill="none" stroke="#f2f3f5" stroke-width="5.4"></circle>
+            ${arcs}
+          </svg>
+          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;padding:0 34px;text-align:center">
+            <div class="mono" style="font-size:30px;font-weight:500;letter-spacing:-.8px;white-space:nowrap">${sh === null ? pctS(100) : segs[sh].pct}</div>
+            <div style="font-size:13px;color:var(--mut);margin-top:2px;line-height:1.3">${sh === null ? (state.tab === 'titre' ? 'du patrimoine' : state.tab === 'secteur' ? 'réparti par secteur' : 'réparti par classe') : esc(segs[sh].label)}</div>
+            <div class="mono" style="font-size:13px;margin-top:6px;white-space:nowrap">${sh === null ? eur0(total) : segs[sh].amount}</div>
+          </div>
+        </div>
+        <div data-leave="seg" style="display:flex;flex-direction:column;gap:2px">
+          ${list || '<div class="empty">Aucune ligne — importe un relevé de positions.</div>'}
+          <div style="font-size:13px;color:var(--mut2);margin-top:12px;padding-top:12px;border-top:1px solid var(--line2)">${NOTES[state.env][state.tab === 'expo' ? 'titre' : state.tab]}</div>
+        </div>
+      </div>`;
+  } else {
+    const cols = '1.4fr 130px 130px 130px 96px';
+    const base = compte(state.env === 'Tout' ? null : state.env);
+    const denom = state.env === 'Tout' ? (T().patrimoine || 1) : (base.value || 1);
+    const list = (EXPO[state.env] || []).map(r => {
+      const tot = r[1] + r[2], pc = tot / denom * 100, dup = r[1] > 0 && r[2] > 0;
+      return `
+      <div class="tr" style="display:grid;grid-template-columns:${cols};padding:13px 0">
+        <div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <span style="font-size:14px;font-weight:600">${esc(r[0])}</span>
+            <span style="background:${dup ? '#fff0f1' : 'var(--line2)'};color:${dup ? 'var(--red)' : 'var(--mut)'};border-radius:100px;padding:3px 9px;font-size:11px;font-weight:600;letter-spacing:.03em;white-space:nowrap">${dup ? 'Doublon direct + ETF' : (r[1] > 0 ? 'En direct' : 'Via ETF uniquement')}</span>
+          </div>
+          <div style="display:flex;height:5px;border-radius:3px;overflow:hidden;gap:2px;width:190px;margin-top:7px">
+            <div style="flex:${Math.max(r[1],0.5)};background:var(--ink)"></div><div style="flex:${Math.max(r[2],0.5)};background:var(--mut3)"></div>
+          </div>
+          <div style="font-size:12px;color:var(--mut2);margin-top:6px">${esc(r[3])}</div>
+        </div>
+        <span class="mono" style="font-size:14px;text-align:right;white-space:nowrap">${r[1] === 0 ? '—' : eur(r[1])}</span>
+        <span class="mono" style="font-size:14px;text-align:right;color:var(--mut);white-space:nowrap">${r[2] === 0 ? '—' : '+' + eur(r[2])}</span>
+        <span class="mono" style="font-size:14px;font-weight:600;text-align:right;white-space:nowrap">${eur(tot)}</span>
+        <span class="mono" style="font-size:14px;font-weight:600;text-align:right;color:${pc >= 20 ? 'var(--red)' : 'var(--ink)'};white-space:nowrap">${pctS(Math.round(pc*10)/10)}</span>
+      </div>`;
+    }).join('');
+
+    body = `
+      <div class="alert">
+        <div class="bang">!</div>
+        <div>
+          <div style="font-size:14px;font-weight:600">${esc(meta.title)}</div>
+          <div style="font-size:13px;color:var(--mut);line-height:1.55;margin-top:3px">${esc(meta.body)}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:${cols};padding:20px 0 10px;border-bottom:1px solid var(--line)">
+        <span class="th">Sous-jacent</span><span class="th r">En direct</span><span class="th r">Via ETF / UC</span><span class="th r">Exposition réelle</span><span class="th r">% portef.</span>
+      </div>
+      ${list}
+      <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:20px">
+        <div style="border:1px solid var(--line);border-radius:16px;padding:18px 20px">
+          <div style="font-size:13px;color:var(--mut2)">Chevauchement entre supports</div>
+          <div class="mono" style="font-size:26px;font-weight:500;margin-top:6px">${meta.overlap}</div>
+          <div style="font-size:13px;color:var(--mut);line-height:1.55;margin-top:6px">${esc(meta.overlapNote)}</div>
+        </div>
+        <div style="border:1px solid var(--line);border-radius:16px;padding:18px 20px">
+          <div style="font-size:13px;color:var(--mut2)">Poids réel des 5 premières positions</div>
+          <div class="mono" style="font-size:26px;font-weight:500;margin-top:6px">${meta.top5}</div>
+          <div class="track" style="margin-top:10px"><div class="fill" style="width:${Math.min(100,meta.top5Bar)}%;background:${meta.top5Bar > 60 ? 'var(--red)' : 'var(--blue)'}"></div></div>
+          <div style="font-size:13px;color:var(--mut);line-height:1.55;margin-top:8px">${esc(meta.top5Note)}</div>
+        </div>
+      </div>`;
+  }
+
+  return `
+  <div class="card lg">
+    <div class="head-block">
+      <div>
+        <div class="card-t">Répartition &amp; exposition</div>
+        <div class="card-s">À quoi ton argent est réellement exposé, et dans quelle proportion</div>
+      </div>
+      ${segControl([
+        {value:'Tout',label:'Tout',small:true},{value:'PEA',label:'PEA',small:true},{value:'Assurance Vie',label:'Assurance Vie',small:true}
+      ], state.env, 'env')}
+    </div>
+    <div class="tabs">${tabs}</div>
+    ${body}
+  </div>`;
+}
+
+/* ---------- enveloppes ---------- */
+function enveloppeCard(name, view, mono, sub, tagLabel, extra){
+  const c = compte(name);
+  const gain = Math.max(0.5, Math.abs(c.pv)), base = Math.max(0.5, c.mise);
+  return `
+  <div class="card enveloppe" data-act="view" data-arg="${view}">
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="avatar" style="width:36px;height:36px;font-size:13px;color:var(--ink)">${mono}</div>
+        <div><div style="font-size:16px;font-weight:600">${name}</div><div style="font-size:12px;color:var(--mut2)">${sub}</div></div>
+      </div>
+      <span class="tag">${tagLabel}</span>
+    </div>
+    <div>
+      <div class="mono" style="font-size:28px;font-weight:500;letter-spacing:-.6px">${eur(c.value)}</div>
+      <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap">
+        <span style="font-size:13px;color:var(--mut)">${c.garanti ? 'Capital garanti' : 'Mise'} ${c.garanti ? '' : `<span class="mono" style="font-weight:500;color:var(--ink)">${eur(c.mise)}</span>`}</span>
+        <span class="mono ${cls(c.pv)}" style="font-size:13px;font-weight:500">${c.garanti ? pctS((c.value / (T().patrimoine || 1)) * 100) + ' du patrimoine' : `${sEur(c.pv)} · ${sPct(c.pvPct)}`}</span>
+      </div>
+    </div>
+    <div class="split" style="height:8px"><div style="flex:${base};background:var(--line2)"></div>${c.pv ? `<div style="flex:${gain};background:${c.pv >= 0 ? 'var(--green)' : 'var(--red)'}"></div>` : ''}</div>
+    ${extra(c)}
+  </div>`;
+}
+
+function enveloppeCards(){
+  const perf = perfPeriod(state.period);
+  const pea = compte('PEA'), av = compte('Assurance Vie'), la = compte('Livret A');
+  const best = pea.lines[0], worst = pea.lines[pea.lines.length - 1];
+  const uc = av.lines.filter(l => l.classe !== 'Fonds euro').reduce((s,l) => s + l.value, 0);
+  const euro = av.value - uc;
+
+  const plafond = (used, cap, label) => `
+    <div style="border-top:1px solid var(--line2);padding-top:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:7px"><span style="font-size:12px;color:var(--mut2)">${label}</span><span class="mono" style="font-size:12px;font-weight:500;color:var(--mut)">${Math.round(used).toLocaleString('fr-FR')} / ${cap.toLocaleString('fr-FR')} €</span></div>
+      <div class="track" style="background:var(--line2)"><div class="fill" style="width:${Math.min(100, used/cap*100).toFixed(1)}%"></div></div>
+    </div>`;
+
+  return `
+  <div>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
+      <div class="card-t">Suivi par enveloppe fiscale</div>
+      <span style="font-size:13px;color:var(--mut2)">Performance sur la période :
+        <span class="mono ${cls(T().pv)}" style="font-weight:500">${perf[0]}</span>
+        <span class="mono ${cls(T().pv)}" style="font-weight:500">${perf[1]}</span>
+      </span>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(3,1fr)">
+      ${enveloppeCard('PEA','pea','PEA', `Bourse Direct · ${pea.lines.length} lignes`, 'Actions', c => `
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Meilleure ligne</span><span style="font-size:13px;font-weight:500">${best ? esc(best.name) + ` <span class="mono ${cls(best.pct)}">${sPct(best.pct)}</span>` : '—'}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Moins bonne</span><span style="font-size:13px;font-weight:500">${worst && worst !== best ? esc(worst.name) + ` <span class="mono ${cls(worst.pct)}">${sPct(worst.pct)}</span>` : '—'}</span></div>
+        </div>
+        ${plafond(c.mise, 150000, 'Plafond de versement')}`)}
+
+      ${enveloppeCard('Assurance Vie','av','AV', `Linxea Spirit 2 · ${av.lines.length} supports`, 'Mixte', c => `
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Unités de compte</span><span style="font-size:13px;font-weight:500">${pctS(c.value ? uc/c.value*100 : 0)} · <span class="mono">${eur(uc)}</span></span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Fonds euro</span><span style="font-size:13px;font-weight:500">${pctS(c.value ? euro/c.value*100 : 0)} · <span class="mono">${eur(euro)}</span></span></div>
+        </div>
+        <div style="border-top:1px solid var(--line2);padding-top:14px">
+          <div style="display:flex;justify-content:space-between;margin-bottom:7px"><span style="font-size:12px;color:var(--mut2)">Antériorité fiscale</span><span class="mono" style="font-size:12px;font-weight:500;color:var(--mut)">5 mois / 8 ans</span></div>
+          <div class="track" style="background:var(--line2)"><div class="fill" style="width:5.2%"></div></div>
+        </div>`)}
+
+      ${enveloppeCard('Livret A','livret','LA','Épargne de précaution','Garanti', c => `
+        <div style="display:flex;flex-direction:column;gap:7px">
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Intérêts ${new Date().getFullYear()} estimés</span><span class="mono pos" style="font-size:13px;font-weight:500">${c.interets ? sEur(c.interets) : '—'}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Taux en vigueur</span><span class="mono" style="font-size:13px;font-weight:500">${c.taux ? pctS(c.taux).replace('.',',') : '—'}</span></div>
+        </div>
+        ${plafond(c.value, 22950, 'Plafond réglementaire')}`)}
+    </div>
+  </div>`;
+}
+
+/* ---------- dernières opérations + modules ---------- */
+function recentOpsAndSide(){
+  const cols = '88px 1fr 130px 110px';
+  const ops = (snap?.operations || []).slice(0, 5);
+  const rows = ops.length ? ops.map((o,i) => `
+    <div style="display:grid;grid-template-columns:${cols};align-items:center;padding:12px 0${i < ops.length-1 ? ';border-bottom:1px solid var(--bg)' : ''}">
+      <span class="mono" style="font-size:13px;color:var(--mut)">${frDate(o.date)}</span>
+      <span style="font-size:14px;font-weight:500">${esc(o.libelle)}</span>
+      <span style="font-size:13px;color:var(--mut)">${esc(o.compte)}</span>
+      <span class="mono ${o.type === 'Dividende' ? 'pos' : ''}" style="font-size:14px;font-weight:500;text-align:right">${sEur(o.montant)}</span>
+    </div>`).join('') : '<div class="empty">Aucune opération importée.</div>';
+
+  const t = T();
+  const projection = CONFIG.showProjection ? `
+    <div class="card">
+      <div class="card-t">Projection · objectif 20 000 €</div>
+      <div style="font-size:13px;color:var(--mut);margin-top:6px;line-height:1.5">${projectionText()}</div>
+      <svg width="100%" height="112" viewBox="0 0 320 112" preserveAspectRatio="none" style="margin-top:16px;display:block">
+        <line x1="0" y1="22" x2="320" y2="22" stroke="#dee1e6" stroke-width="1" stroke-dasharray="4 4"/>
+        ${projectionPaths()}
+      </svg>
+      <div style="display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--mut2)"><span>${new Date().getFullYear()}</span><span>${new Date().getFullYear()+2}</span><span>${new Date().getFullYear()+4}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--line2)">
+        ${[[4,'Prudent 4 %'],[8,'Central 8 %'],[12,'Optimiste 12 %']].map(([r,l]) =>
+          `<div><div style="font-size:12px;color:var(--mut2)">${l}</div><div class="mono" style="font-size:14px;font-weight:500${r === 8 ? ';color:var(--blue)' : ''}">${targetDate(r)}</div></div>`).join('')}
+      </div>
+    </div>` : '';
+
+  const pea = compte('PEA');
+  const psLatent = Math.max(0, pea.pv) * 0.172;
+  const fiscalite = CONFIG.showFiscalite ? `
+    <div class="card">
+      <div class="card-t">Fiscalité</div>
+      <div style="display:flex;flex-direction:column;gap:14px;margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;color:var(--mut)">Maturité PEA (5 ans)</span><span style="font-size:14px;font-weight:500">nov. 2030</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;color:var(--mut)">Abattement AV (8 ans)</span><span style="font-size:14px;font-weight:500">févr. 2034</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;color:var(--mut)">Livret A</span><span class="pos" style="font-size:14px;font-weight:500">Exonéré d'impôt et de PS</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;color:var(--mut)">PS 17,2 % sur latents PEA</span><span class="mono neg" style="font-size:14px;font-weight:500">−${num2(psLatent)} €</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:14px;border-top:1px solid var(--line2)"><span style="font-size:14px;font-weight:600">Gain net si retrait aujourd'hui</span><span class="mono ${cls(t.pv)}" style="font-size:16px;font-weight:500">${sEur((t.pv || 0) - psLatent)}</span></div>
+      </div>
+    </div>` : '';
+
+  return `
+  <div class="grid" style="grid-template-columns:1.5fr 1fr">
+    <div class="card">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
+        <div class="card-t">Dernières opérations</div>
+        <span class="link" style="font-size:14px" data-act="view" data-arg="ops">Tout voir →</span>
+      </div>
+      <div style="display:grid;grid-template-columns:${cols};padding-bottom:10px;border-bottom:1px solid var(--line2)">
+        <span class="th">Date</span><span class="th">Libellé</span><span class="th">Compte</span><span class="th r">Montant</span>
+      </div>
+      ${rows}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:16px">${projection}${fiscalite}</div>
+  </div>`;
+}
+
+/* projection : capitalisation mensuelle sur l'épargne moyenne observée */
+function monthsToTarget(rate, target = 20000){
+  const t = T();
+  let v = t.patrimoine || 0;
+  const m = t.epargneMoyenne || 0;
+  const r = rate / 100 / 12;
+  for (let i = 1; i <= 600; i++){
+    v = v * (1 + r) + m;
+    if (v >= target) return i;
+  }
+  return null;
+}
+function targetDate(rate){
+  const n = monthsToTarget(rate);
+  if (!n) return '> 50 ans';
+  const d = new Date(); d.setMonth(d.getMonth() + n);
+  return MSHORT[d.getMonth()] + ' ' + d.getFullYear();
+}
+function projectionText(){
+  const t = T();
+  return `À ${eur0(t.epargneMoyenne || 0)}/mois et 8 % de rendement, l'objectif est atteint en <span style="font-weight:600;color:var(--ink)">${targetDate(8)}</span>.`;
+}
+function projectionPaths(){
+  const t = T();
+  const series = [4, 8, 12].map(rate => {
+    const pts = [];
+    let v = t.patrimoine || 0;
+    const r = rate / 100 / 12, m = t.epargneMoyenne || 0;
+    for (let i = 0; i <= 60; i += 6){ pts.push(v); for (let k = 0; k < 6; k++) v = v * (1 + r) + m; }
+    return { rate, pts };
+  });
+  const max = Math.max(20000, ...series.flatMap(s => s.pts));
+  const path = s => s.pts.map((v,i) => `${i ? 'L' : 'M'}${(i / (s.pts.length-1) * 320).toFixed(1)},${(112 - v / max * 90).toFixed(1)}`).join(' ');
+  return series.map(s => s.rate === 8
+    ? `<path d="${path(s)}" fill="none" stroke="#0052ff" stroke-width="2"/>`
+    : `<path d="${path(s)}" fill="none" stroke="#a8acb3" stroke-width="1.5" stroke-dasharray="4 3"/>`).join('');
+}
+
+/* ---------- import ---------- */
+function reportBox(){
+  if (state.importing) return `<div class="report busy"><span class="spin"></span>Import en cours…</div>`;
+  const r = state.report;
+  if (!r) return '';
+  if (r.error) return `<div class="report err"><strong>Import refusé.</strong><br>${esc(r.error)}</div>`;
+  const d = r.report;
+  const detail = d.kind === 'operations'
+    ? `${d.added} opération(s) ajoutée(s)${d.duplicates ? `, ${d.duplicates} doublon(s) ignoré(s)` : ''}`
+    : `${d.added} ligne(s) ajoutée(s), ${d.updated} mise(s) à jour${d.removed ? `, ${d.removed} soldée(s)` : ''}`;
+  return `<div class="report ok"><strong>${esc(d.file)} importé.</strong><br>${detail}${d.skipped ? ` · ${d.skipped} ligne(s) non exploitable(s)` : ''} · portefeuille revalorisé.</div>`;
+}
+
+function importCard(){
+  const imports = snap?.imports || [];
+  return `
+  <div class="card">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:18px">
+      <div><div class="card-t">Importer des données</div><div style="font-size:13px;color:var(--mut);margin-top:4px">CSV ou XLSX — opérations ou positions</div></div>
+      <span class="tag">${Object.keys(snap?.comptes || {}).length} sources actives</span>
+    </div>
+    ${reportBox()}
+    <div class="grid" style="grid-template-columns:1.2fr 1fr 1fr;margin-top:${state.report || state.importing ? '16px' : '0'}">
+      <div class="dropzone" data-act="pick" data-drop="1">
+        ${uploadIcon(26,'#0052ff')}
+        <div style="font-size:15px;font-weight:600">Glisse ton fichier ici</div>
+        <div style="font-size:13px;color:var(--mut2);line-height:1.5">CSV ou XLSX · Date, Compte, Type, Montant, Ticker</div>
+        <div class="mono" style="font-size:11px;color:var(--mut3);background:var(--bg);border-radius:8px;padding:8px 12px;margin-top:4px">2026-07-17;PEA;ACHAT;-516,56;SU</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="th" style="margin-bottom:2px;font-size:12px">Cotations</div>
+        <div class="conn"><div style="display:flex;align-items:center;gap:10px"><span class="live-dot" style="background:${conn.status === 'live' ? 'var(--green)' : conn.status === 'partial' ? 'var(--amber)' : 'var(--mut3)'}"></span><span style="font-size:14px;font-weight:500">${esc(snap?.quotes?.provider || 'hors ligne')}</span></div><span class="mono ${conn.status === 'offline' ? 'muted' : 'pos'}" style="font-size:12px">${conn.status === 'live' ? 'en direct' : conn.status === 'partial' ? 'partiel' : 'déconnecté'}</span></div>
+        ${(snap?.quotes?.failed || []).slice(0,3).map(f => `<div class="conn"><span style="font-size:13px">${esc(f.name)}</span><span class="mono muted" style="font-size:12px">${esc(f.reason)}</span></div>`).join('')}
+        <div class="conn"><div style="display:flex;align-items:center;gap:10px"><span class="live-dot" style="background:var(--mut3)"></span><span style="font-size:14px;font-weight:500">Livret A · solde manuel</span></div><span class="link" data-act="modal" data-arg="1">Mettre à jour</span></div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:8px">
+        <div class="th" style="margin-bottom:2px;font-size:12px">Historique</div>
+        ${imports.length ? imports.slice(0,3).map(i => `
+          <div style="border:1px solid var(--line);border-radius:12px;padding:12px 14px">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span style="font-size:13px;font-weight:500">${esc(i.file)}</span><span class="mono ${i.ok ? 'pos' : 'neg'}" style="font-size:12px">${i.ok ? '✓' : '✕'} ${i.rows}</span></div>
+            <div style="font-size:12px;color:var(--mut2);margin-top:2px">${new Date(i.at).toLocaleString('fr-FR')} · ${esc(i.kind)}</div>
+          </div>`).join('') : '<div class="empty">Aucun import.</div>'}
+      </div>
+    </div>
+  </div>`;
+}
+
+function viewGlobal(){
+  return `<div class="screen">
+    ${kpiRow()}${chartCard()}${dividendCard()}${allocationCard()}${enveloppeCards()}${recentOpsAndSide()}${importCard()}
+  </div>`;
+}
+
+/* ============================================================
+   Vue PEA
+   ============================================================ */
+function viewPea(){
+  const c = compte('PEA');
+  const cols = '1.6fr 70px 100px 100px 110px 110px 90px';
+  const rows = c.lines.map(l => `
+    <div class="tr" style="display:grid;grid-template-columns:${cols};padding:14px 0">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div class="avatar" style="width:32px;height:32px;font-size:11px;color:var(--ink);flex:none">${esc(monoOf(l.name))}</div>
+        <div><div style="font-size:14px;font-weight:600">${esc(l.name)}</div><div style="font-size:12px;color:var(--mut2)">${esc([l.symbol || l.ticker, l.cat, l.live ? 'cotation en direct' : 'dernier cours connu'].filter(Boolean).join(' · '))}</div></div>
+      </div>
+      <span class="mono" style="font-size:14px;text-align:right">${l.qty}</span>
+      <span class="mono" style="font-size:14px;text-align:right">${eur(l.pru)}</span>
+      <span class="mono" style="font-size:14px;text-align:right;color:var(--mut)">${eur(l.price)}</span>
+      <span class="mono" style="font-size:14px;font-weight:500;text-align:right">${eur(l.value)}</span>
+      <span class="mono ${cls(l.pv)}" style="font-size:14px;text-align:right">${sEur(l.pv)}</span>
+      <span class="mono ${cls(l.pct)}" style="font-size:14px;font-weight:600;text-align:right">${sPct(l.pct)}</span>
+    </div>`).join('') || '<div class="empty">Aucune ligne — importe un relevé de positions.</div>';
+
+  const serie = serieFor('PEA');
+  const ch = chart(serie, 640, 220, 24);
+  const kpi = (l,v,k) => `<div class="card" style="padding:22px"><div class="kpi-l">${l}</div><div class="kpi-v ${k || ''}" style="margin-top:8px">${v}</div></div>`;
+  const divPea = (snap?.operations || []).filter(o => o.compte === 'PEA' && o.type === 'Dividende' && o.date.startsWith(String(new Date().getFullYear()))).reduce((s,o) => s + o.montant, 0);
+  const top2 = c.lines.slice(0,2).reduce((s,l) => s + l.value, 0);
+
+  return `<div class="screen">
+    <div class="crumb"><span class="up" data-act="view" data-arg="global">Patrimoine</span><span class="sep">/</span><span class="cur">PEA</span></div>
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
+      <div>
+        <div class="title-xl">PEA · Bourse Direct</div>
+        <div class="title-sub">${c.lines.length} lignes · ${snap?.quotes?.provider ? 'cotations ' + esc(snap.quotes.provider) : 'hors ligne'} · valorisé ${new Date(snap?.asOf || Date.now()).toLocaleTimeString('fr-FR')}</div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <div class="btn btn-s" data-act="refreshNow">Actualiser</div>
+        <div class="btn btn-p" data-act="modal" data-arg="1">Importer un relevé</div>
+      </div>
+    </div>
+
+    <div class="grid" style="grid-template-columns:repeat(5,1fr)">
+      ${kpi('Valeur', eur(c.value))}${kpi('Mise', eur(c.mise))}${kpi('Plus-value', sEur(c.pv), cls(c.pv))}${kpi('Performance', sPct(c.pvPct), cls(c.pvPct))}${kpi('Dividendes ' + new Date().getFullYear(), sEur(divPea), 'pos')}
+    </div>
+
+    <div class="grid" style="grid-template-columns:1.7fr 1fr">
+      <div class="card">
+        <div style="display:flex;justify-content:space-between;align-items:baseline">
+          <div class="card-t">Mise versus valeur</div>
+          <div style="display:flex;gap:16px">
+            <div class="legend" style="font-size:12px"><span class="swatch" style="background:var(--green)"></span><span>Valeur</span></div>
+            <div class="legend" style="font-size:12px"><span class="swatch" style="background:var(--mut3)"></span><span>Capital versé</span></div>
+          </div>
+        </div>
+        ${ch ? `<svg width="100%" height="220" viewBox="0 0 640 220" preserveAspectRatio="none" style="margin-top:18px;display:block">
+          <line x1="0" y1="40" x2="640" y2="40" stroke="#eef0f3"/><line x1="0" y1="100" x2="640" y2="100" stroke="#eef0f3"/><line x1="0" y1="160" x2="640" y2="160" stroke="#eef0f3"/>
+          <path d="${ch.areaPath}" fill="${c.pv >= 0 ? '#05b169' : '#cf202f'}" fill-opacity="0.1"/>
+          <path d="${ch.capPath}" fill="none" stroke="#a8acb3" stroke-width="2" stroke-dasharray="5 4"/>
+          <path d="${ch.valPath}" fill="none" stroke="${c.pv >= 0 ? '#05b169' : '#cf202f'}" stroke-width="2.5" stroke-linejoin="round"/>
+          <circle cx="${ch.lastX - 4}" cy="${ch.lastY}" r="4" fill="${c.pv >= 0 ? '#05b169' : '#cf202f'}"></circle>
+        </svg>
+        <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--mut2)"><span>${monthLabel(serie[0].date)}</span><span>${monthLabel(serie[serie.length-1].date)}</span></div>`
+        : '<div class="empty">Historique par enveloppe indisponible.</div>'}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div class="card">
+          <div style="font-size:15px;font-weight:600">Plafond de versement</div>
+          <div class="mono" style="font-size:24px;font-weight:500;margin-top:10px;letter-spacing:-.5px">${Math.round(c.mise).toLocaleString('fr-FR')} / 150 000 €</div>
+          <div style="height:10px;border-radius:5px;background:var(--line2);margin-top:12px"><div style="width:${Math.min(100, c.mise/150000*100).toFixed(1)}%;height:100%;border-radius:5px;background:var(--blue)"></div></div>
+          <div style="font-size:13px;color:var(--mut);margin-top:10px">${pctS(c.mise/150000*100)} utilisé · ${eur0(150000 - c.mise)} encore versables</div>
+        </div>
+        <div class="card">
+          <div style="font-size:15px;font-weight:600">Allocation</div>
+          <div class="split" style="height:10px;border-radius:5px;margin-top:14px">
+            ${c.lines.map((l,i) => `<div style="flex:${Math.max(1, l.value)};background:${PAL[(i+1) % 4 === 0 ? 3 : i+1] || '#dee1e6'}"></div>`).join('')}
+            ${c.cash ? `<div style="flex:${Math.max(1,c.cash)};background:var(--line)"></div>` : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+            ${c.lines.map(l => `<div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">${esc(l.cat || l.name)}</span><span class="mono" style="font-size:13px;font-weight:500">${pctS(c.value ? l.value/c.value*100 : 0)}</span></div>`).join('')}
+            ${c.cash ? `<div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Liquidités</span><span class="mono" style="font-size:13px;font-weight:500">${pctS(c.value ? c.cash/c.value*100 : 0)}</span></div>` : ''}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
+        <div class="card-t">Lignes du portefeuille</div>
+        <span style="font-size:13px;color:var(--mut2)">Trié par plus-value décroissante</span>
+      </div>
+      <div class="thead" style="display:grid;grid-template-columns:${cols}">
+        <span class="th">Ligne</span><span class="th r">Qté</span><span class="th r">PRU</span><span class="th r">Cours</span><span class="th r">Valeur</span><span class="th r">± €</span><span class="th r">± %</span>
+      </div>
+      ${rows}
+    </div>
+
+    <div class="grid" style="grid-template-columns:1fr 1fr 1fr">
+      <div class="card"><div style="font-size:15px;font-weight:600">Versements</div><div class="mono" style="font-size:22px;font-weight:500;margin-top:10px">${eur(c.mise)}</div><div class="kpi-n">${(snap?.operations || []).filter(o => o.compte === 'PEA' && o.type === 'Achat').length} achats</div></div>
+      <div class="card"><div style="font-size:15px;font-weight:600">Concentration</div><div class="mono ${c.value && top2/c.value > 0.6 ? 'neg' : ''}" style="font-size:22px;font-weight:500;margin-top:10px">${pctS(c.value ? top2/c.value*100 : 0)}</div><div class="kpi-n">${c.lines.slice(0,2).map(l => esc(l.name)).join(' + ') || '—'}</div></div>
+      <div class="card"><div style="font-size:15px;font-weight:600">Source des données</div><div style="font-size:14px;font-weight:500;margin-top:10px">${esc(snap?.imports?.[0]?.file || '—')}</div><div class="kpi-n">${snap?.imports?.[0] ? new Date(snap.imports[0].at).toLocaleDateString('fr-FR') + ' · <span class="pos" style="font-weight:500">succès</span>' : 'aucun import'}</div></div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   Vue Assurance Vie
+   ============================================================ */
+function viewAv(){
+  const c = compte('Assurance Vie');
+  const cols = '1.7fr 150px 100px 90px 100px 100px 96px';
+  const maxAbsPv = Math.max(0.01, ...c.lines.map(l => Math.abs(l.pv)));
+
+  const pvRows = c.lines.map(l => {
+    const w = Math.max(1, Math.abs(l.pv) / maxAbsPv * 50);
+    const name = l.name.length > 34 ? l.name.slice(0,32) + '…' : l.name;
+    return `
+      <div style="display:grid;grid-template-columns:1fr 92px 60px;align-items:center;gap:12px">
+        <span style="font-size:13px;font-weight:500">${esc(name)}</span>
+        <div style="display:flex;align-items:center;height:16px;position:relative">
+          <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)"></div>
+          ${l.pv === 0 ? '' : `<div style="position:absolute;height:10px;border-radius:2px;background:${l.pv > 0 ? 'var(--green)' : 'var(--red)'};width:${w}%;left:${l.pv > 0 ? 50 : 50 - w}%"></div>`}
+        </div>
+        <span class="mono ${cls(l.pv)}" style="font-size:13px;font-weight:500;text-align:right">${l.pv === 0 ? '0,00' : sgn(l.pv) + num2(l.pv)}</span>
+      </div>`;
+  }).join('') || '<div class="empty">Aucun support.</div>';
+
+  const rows = c.lines.map(l => `
+    <div class="tr" style="display:grid;grid-template-columns:${cols};padding:13px 0">
+      <div><div style="font-size:14px;font-weight:500">${esc(l.name)}</div><div style="font-size:12px;color:var(--mut2)">${esc(l.cat)}${l.live ? ' · en direct' : ''}</div></div>
+      <span class="mono" style="font-size:12px;color:var(--mut)">${esc(l.isin || '—')}</span>
+      <span class="mono" style="font-size:13px;text-align:right;color:var(--mut)">${(l.qty ?? 0).toLocaleString('fr-FR',{minimumFractionDigits:6,maximumFractionDigits:6})}</span>
+      <span class="mono" style="font-size:13px;text-align:right;color:var(--mut)">${eur(l.price)}</span>
+      <span class="mono" style="font-size:13px;text-align:right;color:var(--mut)">${eur(l.pru)}</span>
+      <span class="mono" style="font-size:14px;font-weight:500;text-align:right">${eur(l.value)}</span>
+      <span class="mono ${cls(l.pv)}" style="font-size:14px;font-weight:500;text-align:right">${l.pv === 0 ? '0,00 €' : sEur(l.pv)}</span>
+    </div>`).join('') || '<div class="empty">Aucun support — importe l\'export du contrat.</div>';
+
+  const euro = c.lines.filter(l => l.classe === 'Fonds euro').reduce((s,l) => s + l.value, 0);
+  const uc = c.value - euro;
+  const actions = c.lines.filter(l => l.classe === 'ETF actions').reduce((s,l) => s + l.value, 0);
+  const oblig = c.lines.filter(l => l.classe === 'Obligations').reduce((s,l) => s + l.value, 0);
+  const best = c.lines[0], worst = c.lines[c.lines.length - 1];
+  const ucPct = c.value ? uc/c.value*100 : 0;
+  const kpi = (l,v,k) => `<div class="card" style="padding:22px"><div class="kpi-l">${l}</div><div class="kpi-v ${k || ''}" style="margin-top:8px">${v}</div></div>`;
+
+  return `<div class="screen">
+    <div class="crumb"><span class="up" data-act="view" data-arg="global">Patrimoine</span><span class="sep">/</span><span class="cur">Assurance Vie</span></div>
+    <div>
+      <div class="title-xl">Assurance Vie · Linxea Spirit 2</div>
+      <div class="title-sub">${c.lines.length} supports · valorisé ${new Date(snap?.asOf || Date.now()).toLocaleString('fr-FR')}</div>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(4,1fr)">
+      ${kpi('Valeur de rachat', eur(c.value))}${kpi('Versements nets', eur(c.mise))}${kpi(c.pv >= 0 ? 'Plus-value latente' : 'Moins-value latente', sEur(c.pv), cls(c.pv))}${kpi('Performance', sPct(c.pvPct), cls(c.pvPct))}
+    </div>
+    <div class="grid" style="grid-template-columns:1fr 1.25fr">
+      <div class="card">
+        <div class="card-t">Fonds euro vs unités de compte</div>
+        <div style="display:flex;align-items:center;gap:24px;margin-top:22px">
+          <svg width="132" height="132" viewBox="0 0 42 42">
+            <circle cx="21" cy="21" r="15.9" fill="none" stroke="#dee1e6" stroke-width="6"></circle>
+            <circle cx="21" cy="21" r="15.9" fill="none" stroke="#0052ff" stroke-width="6" stroke-dasharray="${Math.max(0.1, ucPct - 0.1).toFixed(1)} ${(100 - ucPct + 0.1).toFixed(1)}" stroke-dashoffset="25"></circle>
+          </svg>
+          <div style="display:flex;flex-direction:column;gap:14px">
+            <div><div class="legend"><span class="sq" style="background:var(--blue)"></span><span style="font-size:14px;font-weight:500;color:var(--ink)">Unités de compte</span></div><div class="mono" style="font-size:18px;font-weight:500;margin-top:4px;margin-left:18px">${eur(uc)} · ${pctS(ucPct)}</div></div>
+            <div><div class="legend"><span class="sq" style="background:var(--line)"></span><span style="font-size:14px;font-weight:500;color:var(--ink)">Fonds euro</span></div><div class="mono" style="font-size:18px;font-weight:500;margin-top:4px;margin-left:18px">${eur(euro)} · ${pctS(100 - ucPct)}</div></div>
+          </div>
+        </div>
+        <div style="border-top:1px solid var(--line2);margin-top:22px;padding-top:16px;display:flex;flex-direction:column;gap:10px">
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Poche actions</span><span class="mono" style="font-size:13px;font-weight:500">${eur(actions)} · ${pctS(c.value ? actions/c.value*100 : 0)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Poche obligataire</span><span class="mono" style="font-size:13px;font-weight:500">${eur(oblig)} · ${pctS(c.value ? oblig/c.value*100 : 0)}</span></div>
+          ${ucPct > 95 ? '<div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Contrat quasi intégralement en UC</span><span class="neg" style="font-size:13px;font-weight:500">à surveiller</span></div>' : ''}
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:baseline;justify-content:space-between">
+          <div class="card-t">Plus ou moins-value par support</div>
+          <span style="font-size:13px;color:var(--mut2)">${new Date(snap?.asOf || Date.now()).toLocaleDateString('fr-FR')}</span>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px">${pvRows}</div>
+        <div style="display:flex;gap:24px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line2)">
+          <div><div style="font-size:12px;color:var(--mut2)">Meilleur support</div><div style="font-size:14px;font-weight:600;margin-top:2px">${best ? esc(best.name.slice(0,26)) + ` <span class="mono ${cls(best.pv)}" style="font-weight:500">${sEur(best.pv)}</span>` : '—'}</div></div>
+          <div><div style="font-size:12px;color:var(--mut2)">Moins bon support</div><div style="font-size:14px;font-weight:600;margin-top:2px">${worst && worst !== best ? esc(worst.name.slice(0,26)) + ` <span class="mono ${cls(worst.pv)}" style="font-weight:500">${sEur(worst.pv)}</span>` : '—'}</div></div>
+        </div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-t" style="margin-bottom:16px">Détail des supports</div>
+      <div class="thead" style="display:grid;grid-template-columns:${cols}">
+        <span class="th">Support</span><span class="th">ISIN</span><span class="th r">Parts</span><span class="th r">Cotation</span><span class="th r">PRM</span><span class="th r">Montant</span><span class="th r">± €</span>
+      </div>
+      ${rows}
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   Vue Livret A
+   ============================================================ */
+function viewLivret(){
+  const c = compte('Livret A');
+  const t = T();
+  const part = t.patrimoine ? c.value / t.patrimoine * 100 : 0;
+  const pea = compte('PEA'), av = compte('Assurance Vie');
+  const mensuel = 1500;
+
+  return `<div class="screen">
+    <div class="crumb"><span class="up" data-act="view" data-arg="global">Patrimoine</span><span class="sep">/</span><span class="cur">Livret A</span></div>
+    <div>
+      <div class="title-xl">Livret A</div>
+      <div class="title-sub">Épargne de précaution · capital garanti · taux ${c.taux ? pctS(c.taux) : '—'} · exonéré d'impôt</div>
+    </div>
+    <div class="grid" style="grid-template-columns:1.2fr 1fr 1fr">
+      <div class="card">
+        <div class="kpi-l">Solde actuel</div>
+        <div class="kpi-v xl">${eur(c.value)}</div>
+        <div style="display:flex;justify-content:space-between;margin-top:20px;margin-bottom:8px"><span style="font-size:13px;color:var(--mut)">Plafond réglementaire</span><span class="mono" style="font-size:13px;font-weight:500">${Math.round(c.value).toLocaleString('fr-FR')} / 22 950 €</span></div>
+        <div style="height:12px;border-radius:6px;background:var(--line2)"><div style="width:${Math.min(100, c.value/22950*100).toFixed(1)}%;height:100%;border-radius:6px;background:var(--blue)"></div></div>
+        <div style="font-size:13px;color:var(--mut);margin-top:10px">${pctS(c.value/22950*100)} du plafond · ${eur0(22950 - c.value)} encore versables</div>
+      </div>
+      <div class="card">
+        <div class="kpi-l">Intérêts ${new Date().getFullYear()} estimés</div>
+        <div class="kpi-v xl pos">${c.interets ? sEur(c.interets) : '—'}</div>
+        <div style="font-size:13px;color:var(--mut);margin-top:8px">Calculé par quinzaines · versés au 31/12</div>
+        <div style="border-top:1px solid var(--line2);margin-top:16px;padding-top:14px;display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Solde renseigné</span><span style="font-size:13px;font-weight:500;color:var(--mut3)">manuellement</span></div>
+      </div>
+      <div class="card">
+        <div class="kpi-l">Matelas de sécurité</div>
+        <div class="kpi-v xl">${(c.value / mensuel).toLocaleString('fr-FR',{maximumFractionDigits:1})} mois</div>
+        <div style="font-size:13px;color:var(--mut);margin-top:8px;line-height:1.5">Sur une base de ${eur0(mensuel)} de dépenses mensuelles. Cible recommandée : 3 à 6 mois${c.value/mensuel >= 3 && c.value/mensuel <= 6 ? ' — tu es dans la cible.' : '.'}</div>
+      </div>
+    </div>
+    <div style="background:var(--ink);border-radius:24px;padding:28px 32px;display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center">
+      <div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mut3)">Répartition du patrimoine</div>
+        <div style="font-size:24px;font-weight:400;letter-spacing:-.5px;color:#fff;margin-top:8px;line-height:1.35">${pctS(part)} de ton épargne dort sur un livret à ${c.taux ? pctS(c.taux) : '—'}</div>
+        <div style="font-size:14px;color:var(--mut3);line-height:1.6;margin-top:12px">Au-delà de 4 à 6 mois de dépenses, l'excédent perd du pouvoir d'achat dès que l'inflation dépasse le taux du livret. Les versements suivants pourraient aller vers le PEA ou l'assurance vie.</div>
+      </div>
+      <div>
+        <div style="display:flex;height:40px;border-radius:8px;overflow:hidden;gap:2px">
+          <div style="flex:${Math.max(1,c.value)};background:#3f4652;display:flex;align-items:center;padding-left:14px"><span class="mono" style="font-size:13px;font-weight:500;color:#fff;white-space:nowrap">Livret A ${pctS(part)}</span></div>
+          <div style="flex:${Math.max(1,pea.value)};background:var(--blue);display:flex;align-items:center;justify-content:center"><span class="mono" style="font-size:12px;font-weight:600;color:#fff">PEA</span></div>
+          <div style="flex:${Math.max(1,av.value)};background:var(--green);display:flex;align-items:center;justify-content:center"><span class="mono" style="font-size:12px;font-weight:600;color:var(--ink)">AV</span></div>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px">
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut3)">Livret A · garanti ${c.taux ? pctS(c.taux) : ''}</span><span class="mono" style="font-size:13px;color:#fff">${eur(c.value)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut3)">PEA · actions</span><span class="mono" style="font-size:13px;color:#fff">${eur(pea.value)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut3)">Assurance vie · UC</span><span class="mono" style="font-size:13px;color:#fff">${eur(av.value)}</span></div>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   Vue Opérations
+   ============================================================ */
+function viewOps(){
+  const cols = '110px 140px 120px 1fr 110px 130px';
+  const all = snap?.operations || [];
+  const list = all.filter(o => state.filt === 'Tous' || o.compte === state.filt);
+  const rows = list.map(o => `
+    <div class="tr" style="display:grid;grid-template-columns:${cols};padding:13px 0">
+      <span class="mono" style="font-size:13px;color:var(--mut)">${o.dateFr || frDate(o.date)}</span>
+      <span style="font-size:14px;color:var(--mut)">${esc(o.compte)}</span>
+      <span style="font-size:13px;font-weight:600">${esc(o.type)}</span>
+      <span style="font-size:14px;font-weight:500">${esc(o.libelle)}</span>
+      <span class="mono" style="font-size:13px;color:var(--mut2)">${esc(o.ticker || '—')}</span>
+      <span class="mono ${o.type === 'Dividende' ? 'pos' : ''}" style="font-size:14px;font-weight:500;text-align:right">${sEur(o.montant)}</span>
+    </div>`).join('') || '<div class="empty">Aucune opération pour ce filtre.</div>';
+
+  const comptes = [...new Set(all.map(o => o.compte))];
+
+  return `<div class="screen">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between">
+      <div>
+        <div class="title-xl">Journal des opérations</div>
+        <div class="title-sub">${all.length} opérations${T().premiereOperation ? ' depuis ' + monthLong(T().premiereOperation) : ''} · doublons ignorés à l'import</div>
+      </div>
+      ${segControl([{value:'Tous',label:'Tous'}, ...comptes.map(c => ({value:c,label:c}))], state.filt, 'filt')}
+    </div>
+    <div class="card">
+      <div class="thead" style="display:grid;grid-template-columns:${cols}">
+        <span class="th">Date</span><span class="th">Compte</span><span class="th">Type</span><span class="th">Libellé</span><span class="th">Ticker</span><span class="th r">Montant</span>
+      </div>
+      ${rows}
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   Modale d'import
+   ============================================================ */
+function modal(){
+  if (!state.modal) return '';
+  return `
+  <div class="overlay" data-act="modal" data-arg="0">
+    <div class="modal" data-act="stop">
+      <div class="head-block">
+        <div>
+          <div style="font-size:24px;font-weight:400;letter-spacing:-.5px">Importer des données</div>
+          <div style="font-size:14px;color:var(--mut);margin-top:4px">Fichier CSV ou export XLSX — opérations ou positions</div>
+        </div>
+        <div class="close" data-act="modal" data-arg="0">✕</div>
+      </div>
+      ${reportBox()}
+      <div class="dropzone" data-act="pick" data-drop="1" style="border-color:var(--blue);background:#f7f9ff;padding:36px">
+        ${uploadIcon(28,'#0052ff')}
+        <div style="font-size:16px;font-weight:600">Dépose ton fichier ou parcours</div>
+        <div style="font-size:13px;color:var(--mut)">CSV, TSV ou XLSX · 10 Mo maximum</div>
+      </div>
+      <div>
+        <div class="th" style="font-size:12px;margin-bottom:10px">Opérations</div>
+        <div class="code">
+          <div style="color:var(--ink);font-weight:600">Date;Compte;Type;Montant;Ticker</div>
+          <div>2026-07-17;PEA;ACHAT;-516,56;SU</div>
+          <div>2026-06-01;AV;VERSEMENT;100,00;</div>
+        </div>
+      </div>
+      <div>
+        <div class="th" style="font-size:12px;margin-bottom:10px">Positions (remplace les lignes de l'enveloppe)</div>
+        <div class="code">
+          <div style="color:var(--ink);font-weight:600">Compte;Libellé;ISIN;Quantité;PRU;Cours</div>
+          <div>PEA;Schneider Electric;FR0000121972;2;258,28;269,95</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center">
+        <span style="font-size:12px;color:var(--mut2);margin-right:auto">Les colonnes sont reconnues automatiquement (FR/EN).</span>
+        <div class="btn btn-s" data-act="modal" data-arg="0">Fermer</div>
+        <div class="btn btn-p" data-act="pick">Choisir un fichier</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   Rendu + interactions
+   ============================================================ */
+const VIEWS = { global:viewGlobal, pea:viewPea, av:viewAv, livret:viewLivret, ops:viewOps };
+const app = document.getElementById('app');
+const picker = document.getElementById('picker');
+
+function render(){
+  if (!snap && conn.status !== 'offline'){
+    app.innerHTML = `<div class="shell"><main><div class="screen"><div class="card"><div class="empty"><span class="spin"></span>Chargement du portefeuille…</div></div></div></main></div>`;
+    return;
+  }
+  app.innerHTML = `<div class="shell">${sidebar()}<main>${header()}${snap ? VIEWS[state.view]() : offlineScreen()}</main></div>${modal()}`;
+  app.querySelectorAll('[data-leave]').forEach(el => el.addEventListener('mouseleave', () => set({ [el.dataset.leave]: null })));
+  app.querySelectorAll('[data-drop]').forEach(el => {
+    el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('over'); });
+    el.addEventListener('dragleave', () => el.classList.remove('over'));
+    el.addEventListener('drop', e => {
+      e.preventDefault(); el.classList.remove('over');
+      const f = e.dataTransfer?.files?.[0];
+      if (f) upload(f);
+    });
+  });
+}
+
+function offlineScreen(){
+  return `<div class="screen"><div class="card">
+    <div class="card-t">Serveur injoignable</div>
+    <div class="card-s">${esc(conn.error || '')}</div>
+    <div class="code" style="margin-top:16px">cd C:\\dev\\patrimoine<br>node server.js</div>
+    <div style="margin-top:16px"><div class="btn btn-p" style="display:inline-flex" data-act="retry">Réessayer</div></div>
+  </div></div>`;
+}
+
+async function upload(file){
+  set({ importing:true, report:null });
+  try {
+    const res = await API.import(file);
+    state.report = res;
+    applySnapshot(res.snapshot);
+  } catch (e) {
+    state.report = { error:e.message };
+  } finally {
+    set({ importing:false });
+    render();
+  }
+}
+
+picker.addEventListener('change', () => {
+  const f = picker.files?.[0];
+  picker.value = '';
+  if (f) upload(f);
+});
+
+const ACTIONS = {
+  view:   v => set({ view:v }),
+  period: v => set({ period:v }),
+  year:   v => set({ year:Number(v), dHov:null }),
+  env:    v => set({ env:v, seg:null }),
+  tab:    v => set({ tab:v, seg:null }),
+  filt:   v => set({ filt:v }),
+  modal:  v => set({ modal:v === '1', report:null }),
+  pick:   () => picker.click(),
+  retry:  () => boot(),
+  stop:   () => {},
+  refreshNow: async () => {
+    conn = { ...conn, status:'connecting' }; render();
+    try { applySnapshot(await API.refresh()); }
+    catch (e) { conn = { status:'offline', at:conn.at, error:e.message }; render(); }
+  }
+};
+
+app.addEventListener('click', e => {
+  const t = e.target.closest('[data-act]');
+  if (!t) return;
+  const fn = ACTIONS[t.dataset.act];
+  if (fn) { e.stopPropagation(); fn(t.dataset.arg); }
+});
+
+app.addEventListener('mouseover', e => {
+  const t = e.target.closest('[data-hover]');
+  if (!t) return;
+  set({ [t.dataset.hover]: Number(t.dataset.hval) });
+});
+
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.modal) set({ modal:false }); });
+
+render();
+boot();
+</script>
+</body>
+</html>
