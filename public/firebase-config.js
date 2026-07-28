@@ -10,12 +10,13 @@
  *    cotations en direct — l'app marche quand même avec les derniers cours connus.
  */
 window.FIREBASE_CONFIG = {
-  apiKey: "REMPLACE-MOI",
-  authDomain: "REMPLACE-MOI.firebaseapp.com",
-  projectId: "REMPLACE-MOI",
-  storageBucket: "REMPLACE-MOI.firebasestorage.app",
-  messagingSenderId: "000000000000",
-  appId: "1:000000000000:web:0000000000000000000000"
+  apiKey: "AIzaSyDK1RbYja4EUxXeFzvwnsShrV48Uigy9oA",
+  authDomain: "portefeuille-d10c5.firebaseapp.com",
+  projectId: "portefeuille-d10c5",
+  storageBucket: "portefeuille-d10c5.firebasestorage.app",
+  messagingSenderId: "69621908624",
+  appId: "1:69621908624:web:94554ec3370577272bc415",
+  measurementId: "G-PZSK6ZWY8S"
 };
 
 window.QUOTES_WORKER_URL = "https://patrimoine-cotations.vmeslin07.workers.dev";
