@@ -18,4 +18,4 @@ window.FIREBASE_CONFIG = {
   appId: "1:000000000000:web:0000000000000000000000"
 };
 
-window.QUOTES_WORKER_URL = "";
+window.QUOTES_WORKER_URL = "https://patrimoine-cotations.vmeslin07.workers.dev";
