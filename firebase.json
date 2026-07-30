@@ -5,7 +5,15 @@
     "headers": [
       {
         "source": "/m/sw.js",
-        "headers": [{ "key": "Service-Worker-Allowed", "value": "/m/" }]
+        "headers": [
+          { "key": "Service-Worker-Allowed", "value": "/m/" },
+          { "key": "Cache-Control", "value": "no-cache" }
+        ]
+      },
+      {
+        "comment": "Sans ça, Firebase Hosting sert max-age=3600 : après un déploiement, les navigateurs gardent l'ancien code jusqu'à une heure. no-cache force la revalidation (304 si rien n'a changé, donc pas plus lourd).",
+        "source": "**/*.@(html|js|json|webmanifest)",
+        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       }
     ]
   },

@@ -6,11 +6,11 @@
    lui-même son propre cache hors-ligne (IndexedDB). */
 'use strict';
 
-const CACHE = 'patrimoine-shell-v4';
+const CACHE = 'patrimoine-shell-v5';
 const SHELL = [
   '/m/', '/m/index.html', '/m/world-exposure.html', '/m/manifest.webmanifest',
   '/m/icon-192.png', '/m/icon-512.png',
-  '/firebase-config.js', '/app-core.js', '/firebase-client.js'
+  '/firebase-config.js?v=2', '/app-core.js?v=2', '/firebase-client.js?v=2'
 ];
 
 self.addEventListener('install', e => {

@@ -144,19 +144,26 @@ function normalize(data) {
   };
 }
 
-/** Cotations depuis le Worker Cloudflare. Renvoie une Map key → quote (vide si indisponible). */
+/** Cotations depuis le Worker Cloudflare. Renvoie une Map key → quote (vide si indisponible).
+    Délai maximal borné : au pire on garde les derniers cours connus, jamais de blocage. */
 async function fetchQuotes(positions) {
   if (!WORKER_URL) return new Map();
   const req = Core.quoteRequest(positions);
   if (!req.length) return new Map();
-  const res = await fetch(WORKER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(req)
-  });
-  if (!res.ok) throw new Error(`cotations HTTP ${res.status}`);
-  const data = await res.json();
-  return new Map(Object.entries(data));
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const res = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+      signal: ctrl.signal
+    });
+    if (!res.ok) throw new Error(`cotations HTTP ${res.status}`);
+    return new Map(Object.entries(await res.json()));
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Recalcule la valorisation. live=true → interroge le Worker ; sinon derniers cours connus. */
@@ -224,8 +231,14 @@ async function importFile(file) {
   rawPortfolio.meta.imports.push({ file: file.name, at: new Date().toISOString(), kind: parsed.kind, rows: parsed.operations.length + parsed.positions.length, ok: true });
   rawPortfolio.meta.updatedAt = new Date().toISOString().slice(0, 10);
 
-  await setDoc(mainRef(), rawPortfolio);      // déclenche onSnapshot → recompute
-  const snapshot = await recompute(true);
+  // Enregistre d'abord et rends la main tout de suite : la valorisation au
+  // dernier cours connu suffit à confirmer l'import. Le rafraîchissement des
+  // cotations (appel réseau au Worker) se fait en arrière-plan via le listener
+  // onSnapshot déclenché par cette écriture — ne PAS l'attendre ici, sinon
+  // l'import « reste bloqué » tant que les cotations ne répondent pas.
+  await setDoc(mainRef(), rawPortfolio);
+  const snapshot = Core.value(rawPortfolio, new Map());
+  lastSnapshot = snapshot;
   return { ok: true, report, snapshot };
 }
 
@@ -235,6 +248,89 @@ async function updateBalance(compte, value, taux) {
   rawPortfolio.balances[compte] = { value, taux: taux ?? rawPortfolio.balances[compte]?.taux ?? null, updatedAt: new Date().toISOString().slice(0, 10) };
   await setDoc(mainRef(), rawPortfolio);
   return recompute(false);
+}
+
+/* ---------- saisie manuelle des lignes ---------- */
+
+const posId = p => (p.isin || p.ticker || p.name || '').toUpperCase() + '|' + (p.compte || '');
+
+/**
+ * Ajoute ou remplace une ligne saisie à la main (action, ETF, obligation,
+ * fonds euro, liquidités…). Identifiée par ISIN/ticker/nom + enveloppe :
+ * ressaisir la même ligne la met à jour au lieu de la dupliquer.
+ * @param {{compte,name,ticker?,isin?,symbol?,qty,pru,price?,cat?,manual?}} pos
+ */
+async function savePosition(pos) {
+  await ensureLoaded();
+  const clean = {
+    compte: String(pos.compte || '').trim() || 'PEA',
+    name: String(pos.name || '').trim(),
+    ticker: String(pos.ticker || '').trim().toUpperCase(),
+    isin: String(pos.isin || '').trim().toUpperCase(),
+    qty: Number(pos.qty),
+    pru: Number(pos.pru),
+    cat: String(pos.cat || '').trim()
+  };
+  if (!clean.name) throw new Error('Le libellé est obligatoire.');
+  if (!Number.isFinite(clean.qty) || clean.qty <= 0) throw new Error('Quantité invalide.');
+  if (!Number.isFinite(clean.pru) || clean.pru < 0) throw new Error('Prix de revient (PRU) invalide.');
+
+  const price = Number(pos.price);
+  clean.price = Number.isFinite(price) && price > 0 ? price : clean.pru;   // sans cours saisi, on part du PRU
+  if (pos.symbol) clean.symbol = String(pos.symbol).trim().toUpperCase();
+  if (pos.manual) clean.manual = true;                                     // ligne jamais cotée (fonds euro…)
+
+  rawPortfolio.positions = rawPortfolio.positions || [];
+  const idx = rawPortfolio.positions.findIndex(x => posId(x) === posId(clean));
+  const created = idx < 0;
+  if (created) rawPortfolio.positions.push({ ...clean, addedAt: new Date().toISOString().slice(0, 10) });
+  else rawPortfolio.positions[idx] = { ...rawPortfolio.positions[idx], ...clean };
+
+  await setDoc(mainRef(), rawPortfolio);
+  lastSnapshot = Core.value(rawPortfolio, new Map());
+  emit();
+  recompute(true).catch(e => console.warn('[quotes]', e.message));         // cotation en arrière-plan
+  return { ok: true, created, name: clean.name, snapshot: lastSnapshot };
+}
+
+/** Supprime une ligne saisie ou importée. */
+async function removePosition(name, compte) {
+  await ensureLoaded();
+  const before = (rawPortfolio.positions || []).length;
+  rawPortfolio.positions = (rawPortfolio.positions || []).filter(
+    x => !(x.name === name && (!compte || x.compte === compte))
+  );
+  if (rawPortfolio.positions.length === before) throw new Error(`Ligne « ${name} » introuvable.`);
+  await setDoc(mainRef(), rawPortfolio);
+  lastSnapshot = Core.value(rawPortfolio, new Map());
+  emit();
+  return { ok: true, snapshot: lastSnapshot };
+}
+
+/** Ajoute une opération saisie à la main (versement, dividende, achat…). */
+async function addOperation(op) {
+  await ensureLoaded();
+  const clean = {
+    date: Core.date(op.date) || new Date().toISOString().slice(0, 10),
+    compte: String(op.compte || '').trim() || 'PEA',
+    type: String(op.type || '').trim() || 'Versement',
+    libelle: String(op.libelle || '').trim(),
+    ticker: String(op.ticker || '').trim().toUpperCase(),
+    isin: '',
+    montant: Number(op.montant),
+    qty: null, price: null
+  };
+  if (!Number.isFinite(clean.montant)) throw new Error('Montant invalide.');
+  if (!clean.libelle) clean.libelle = clean.type;
+
+  rawPortfolio.operations = rawPortfolio.operations || [];
+  const merged = Core.mergeOperations(rawPortfolio, [clean]);
+  if (!merged.added) throw new Error('Cette opération existe déjà (même date, compte, type, libellé et montant).');
+
+  await setDoc(mainRef(), rawPortfolio);
+  lastSnapshot = Core.value(rawPortfolio, new Map());
+  emit();
+  return { ok: true, snapshot: lastSnapshot };
 }
 
 async function pinSymbol(match, symbol, manual) {
@@ -257,6 +353,10 @@ window.PatrimoineData = {
   refreshPerf(live = true) { return recompute(live); },
   updateBalance,
   pinSymbol,
+  savePosition,
+  removePosition,
+  addOperation,
+  get portfolio() { return rawPortfolio; },
   get refreshing() { return refreshing; }
 };
 

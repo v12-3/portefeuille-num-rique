@@ -270,29 +270,63 @@
   /* ============================================================
      Import — reconnaissance des colonnes, lignes → entités
      ============================================================ */
+  // Libellés de colonnes acceptés, accents et casse ignorés (voir slug()).
+  // Couvre les exports Bourse Direct, Boursorama, Fortuneo, Degiro, Trade
+  // Republic, Linxea/Spirica, ainsi que les en-têtes anglais courants.
   const FIELDS = {
-    date:    ['date', 'date operation', 'date d operation', 'date d execution', 'date valeur', 'date de l operation', 'jour'],
-    compte:  ['compte', 'enveloppe', 'portefeuille', 'contrat', 'support fiscal', 'account'],
-    type:    ['type', 'nature', 'operation', 'sens', 'libelle operation', 'mouvement'],
-    libelle: ['libelle', 'libelle complet', 'description', 'designation', 'intitule', 'nom', 'support', 'valeur', 'produit', 'label'],
-    montant: ['montant', 'montant net', 'montant brut', 'montant eur', 'amount', 'total', 'net'],
-    ticker:  ['ticker', 'symbole', 'symbol', 'mnemo', 'mnemonique', 'code valeur'],
-    isin:    ['isin', 'code isin'],
-    qty:     ['quantite', 'qte', 'qty', 'nombre de parts', 'parts', 'nb parts', 'nombre'],
-    pru:     ['pru', 'prm', 'prix de revient', 'prix moyen', 'prix de revient unitaire', 'prix moyen pondere', 'cout unitaire'],
-    price:   ['cours', 'cotation', 'valeur liquidative', 'vl', 'derniere cotation', 'prix', 'cours de cloture'],
-    amount:  ['montant', 'valorisation', 'valeur de rachat', 'contre valeur', 'montant investi'],
-    cat:     ['categorie', 'classe', 'classe d actifs', 'type de support', 'poche']
+    date:    ['date', 'date operation', 'date d operation', 'date de l operation', 'date d execution', 'date d execution ordre',
+              'date valeur', 'date de valeur', 'date comptable', 'date de transaction', 'date transaction', 'date de negociation',
+              'jour', 'day', 'trade date', 'value date', 'datetime'],
+    compte:  ['compte', 'enveloppe', 'portefeuille', 'contrat', 'support fiscal', 'account', 'numero de compte',
+              'compte titre', 'type de compte', 'nom du contrat', 'reference contrat'],
+    type:    ['type', 'nature', 'operation', 'sens', 'libelle operation', 'mouvement', 'nature de l operation',
+              'type d operation', 'type de mouvement', 'transaction type', 'transaction'],
+    libelle: ['libelle', 'libelle complet', 'libelle de l operation', 'description', 'designation', 'intitule', 'nom',
+              'support', 'nom du support', 'valeur', 'nom de la valeur', 'produit', 'instrument', 'label', 'name'],
+    montant: ['montant', 'montant net', 'montant brut', 'montant eur', 'montant total', 'montant de l operation',
+              'montant en euros', 'amount', 'total', 'net', 'debit credit', 'credit debit'],
+    ticker:  ['ticker', 'symbole', 'symbol', 'mnemo', 'mnemonique', 'code valeur', 'code mnemonique'],
+    isin:    ['isin', 'code isin', 'isin code', 'identifiant isin'],
+    qty:     ['quantite', 'qte', 'qty', 'quantity', 'nombre de parts', 'nombre d unites de compte', 'parts', 'nb parts',
+              'nombre de titres', 'nombre', 'shares', 'units'],
+    pru:     ['pru', 'prm', 'prix de revient', 'prix de revient unitaire', 'prix moyen', 'prix moyen pondere',
+              'prix moyen d achat', 'prix d achat', 'pmp', 'cout unitaire', 'prix unitaire moyen', 'average price'],
+    price:   ['cours', 'cours de bourse', 'cours actuel', 'cotation', 'derniere cotation', 'dernier cours',
+              'valeur liquidative', 'vl', 'prix', 'cours de cloture', 'last price', 'price', 'close'],
+    amount:  ['montant', 'valorisation', 'valorisation en euros', 'valeur de rachat', 'contre valeur', 'contre valeur en euros',
+              'montant investi', 'solde', 'market value'],
+    cat:     ['categorie', 'classe', 'classe d actifs', 'type de support', 'poche', 'secteur', 'asset class']
   };
+
+  // Ordre de priorité : un champ précis (isin) est attribué avant un champ
+  // générique (ticker), sinon « Code ISIN » finirait aussi dans le ticker.
+  // `montant` avant `amount` : les deux acceptent le libellé « Montant », mais
+  // c'est `montant` qui identifie un fichier d'opérations (cf. detectKind).
+  const FIELD_ORDER = ['isin', 'date', 'compte', 'type', 'qty', 'pru', 'price', 'montant', 'amount', 'ticker', 'cat', 'libelle'];
 
   function mapColumns(header) {
     const map = {};
     const slugs = header.map(slug);
-    for (const [field, names] of Object.entries(FIELDS)) {
-      let idx = slugs.findIndex(h => h && names.includes(h));
-      if (idx < 0) idx = slugs.findIndex(h => h && names.some(n => h.startsWith(n)));
-      if (idx >= 0 && !(field in map)) map[field] = idx;
+    const taken = new Set();                       // une colonne ne sert qu'un seul champ
+
+    const claim = (field, idx) => { map[field] = idx; taken.add(idx); };
+    const fields = [...FIELD_ORDER.filter(f => f in FIELDS), ...Object.keys(FIELDS).filter(f => !FIELD_ORDER.includes(f))];
+
+    // 1er passage : correspondance exacte du libellé de colonne
+    for (const field of fields) {
+      if (field in map) continue;
+      const idx = slugs.findIndex((h, i) => h && !taken.has(i) && FIELDS[field].includes(h));
+      if (idx >= 0) claim(field, idx);
     }
+    // 2e passage : correspondance par préfixe (« montant net de frais »…)
+    for (const field of fields) {
+      if (field in map) continue;
+      const idx = slugs.findIndex((h, i) => h && !taken.has(i) && FIELDS[field].some(n => h.startsWith(n)));
+      if (idx >= 0) claim(field, idx);
+    }
+    // `amount` (valorisation) et `montant` partagent des libellés : si seul
+    // `montant` a été trouvé sur un fichier de positions, il fait office de montant.
+    if (map.amount == null && map.montant != null && map.qty != null) map.amount = map.montant;
     return map;
   }
   const cell = (row, i) => (i == null || row[i] == null) ? '' : row[i];
@@ -376,15 +410,32 @@
    * Parse un fichier importé (Uint8Array).
    * @returns {Promise<{kind, operations, positions, skipped, sourceRows, columns}>}
    */
+  // Décodage texte robuste : la plupart des exports français sont en UTF-8,
+  // mais certains courtiers exportent en Windows-1252 (Latin-1). Si le décodage
+  // UTF-8 produit des caractères de remplacement (accents cassés), on réessaie
+  // en Windows-1252. La reconnaissance des colonnes ignore de toute façon les
+  // accents (slug), ce repli sert surtout à afficher les libellés proprement.
+  function decodeText(u8) {
+    let s = decoder.decode(u8);
+    if (s.includes('�')) {
+      try { s = new TextDecoder('windows-1252').decode(u8); } catch { /* navigateur sans win-1252 */ }
+    }
+    return s;
+  }
+
   async function parseFile(u8, filename, defaults = {}) {
     const ext = String(filename || '').toLowerCase().split('.').pop();
     let header, rows;
-    const looksZip = u8.length > 2 && u8[0] === 0x50 && u8[1] === 0x4b;
+    const looksZip = u8.length > 2 && u8[0] === 0x50 && u8[1] === 0x4b;      // xlsx = archive ZIP
+    const looksOle = u8.length > 2 && u8[0] === 0xd0 && u8[1] === 0xcf;      // .xls ancien (binaire OLE)
 
+    if (looksOle || ext === 'xls') {
+      throw new Error("Format .xls (ancien Excel) non pris en charge. Ré-enregistre le fichier en .xlsx (Excel : Fichier → Enregistrer sous → « Classeur Excel (.xlsx) ») ou en CSV, puis réimporte.");
+    }
     if (ext === 'xlsx' || ext === 'xlsm' || (looksZip && ext !== 'csv' && ext !== 'txt' && ext !== 'tsv')) {
       ({ header, rows } = await parseXlsx(u8));
     } else {
-      ({ header, rows } = parseCsv(decoder.decode(u8)));
+      ({ header, rows } = parseCsv(decodeText(u8)));
     }
     if (!header.length) throw new Error('Fichier vide ou illisible');
 

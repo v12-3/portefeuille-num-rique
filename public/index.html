@@ -7,9 +7,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
-<script src="/firebase-config.js"></script>
-<script src="/app-core.js"></script>
-<script type="module" src="/firebase-client.js"></script>
+<!-- ?v= : numéro à incrémenter à chaque déploiement qui touche ces fichiers.
+     Sans lui, un navigateur ayant déjà mis un module en cache continue de servir
+     l'ancienne version jusqu'à expiration, et l'app paraît « ne pas se mettre à jour ». -->
+<script src="/firebase-config.js?v=2"></script>
+<script src="/app-core.js?v=2"></script>
+<script type="module" src="/firebase-client.js?v=2"></script>
 <style>
 :root{
   --blue:#0052ff; --blue-d:#003ecc; --blue-l:#4d84ff;
@@ -297,7 +300,7 @@ const monthLong  = s => s ? MLABEL[Number(s.slice(5,7))-1].toLowerCase() + ' ' +
    État
    ============================================================ */
 const state = {
-  view:'global', period:CONFIG.defaultPeriod, modal:false, filt:'Tous',
+  view:'global', period:CONFIG.defaultPeriod, modal:false, modalTab:'saisie', filt:'Tous',
   hov:null, year:2026, dHov:null, env:'Tout', tab:'titre', seg:null,
   importing:false, report:null,
   user:undefined,                    // undefined = état d'auth pas encore connu, null = déconnecté
@@ -353,18 +356,57 @@ const T = () => snap?.totals || {};
 const compte = name => snap?.comptes?.[name] || { value:0, mise:0, pv:0, pvPct:0, lines:[], cash:0 };
 const hist = () => (snap?.history || []);
 
-/** Performance sur la période : variation de la plus-value latente. */
-function perfPeriod(period){
-  const h = hist();
-  if (h.length < 2) return [sEur(T().pv || 0), sPct(T().pvPct || 0)];
-  const last = h[h.length - 1];
-  if (period === 'Global') return [sEur(last.val - last.cap), sPct(last.cap ? (last.val - last.cap) / last.cap * 100 : 0)];
+const PERIOD_DAYS = { Mensuel:31, Trimestriel:92, Annuel:365 };
+const PERIOD_LABEL = { Mensuel:'sur 1 mois', Trimestriel:'sur 3 mois', Annuel:'sur 1 an', Global:'depuis le début' };
 
-  const days = { Mensuel:31, Trimestriel:92, Annuel:365 }[period] || 365;
-  const cutoff = new Date(Date.parse(last.date) - days * 86400000).toISOString().slice(0,10);
+/**
+ * Fenêtre d'historique correspondant à la période choisie, et performance sur
+ * cette fenêtre (variation de la plus-value latente entre le début et la fin).
+ *
+ * `enough` dit si l'historique couvre réellement la période demandée : sinon on
+ * le signale à l'écran au lieu de faire passer un chiffre plus court pour le
+ * chiffre demandé. L'historique se construit à raison d'un point par jour, donc
+ * les périodes longues ne sont exploitables qu'après plusieurs semaines d'usage.
+ */
+function periodWindow(period = state.period){
+  const h = hist();
+  const t = T();
+  if (h.length < 2) {
+    return { points:h, gain:t.pv || 0, pct:t.pvPct || 0, enough:false, label:PERIOD_LABEL[period] || '', period, fallback:'global' };
+  }
+  const last = h[h.length - 1];
+
+  if (period === 'Global'){
+    const first = h[0];
+    return {
+      points:h, enough:true, period, label:PERIOD_LABEL.Global,
+      gain:last.val - last.cap,
+      pct:last.cap ? (last.val - last.cap) / last.cap * 100 : 0,
+      from:first.date, to:last.date
+    };
+  }
+
+  const days = PERIOD_DAYS[period] || 365;
+  const cutoffMs = Date.parse(last.date) - days * 86400000;
+  const cutoff = new Date(cutoffMs).toISOString().slice(0,10);
+  const points = h.filter(p => p.date >= cutoff);
   const base = h.filter(p => p.date <= cutoff).pop() || h[0];
+  const window = points.length >= 2 ? points : h.slice(-2);
   const gain = (last.val - last.cap) - (base.val - base.cap);
-  return [sEur(gain), sPct(last.cap ? gain / last.cap * 100 : 0)];
+
+  return {
+    points:window, period, label:PERIOD_LABEL[period],
+    gain, pct:last.cap ? gain / last.cap * 100 : 0,
+    // historique suffisant seulement si un point antérieur au début de fenêtre existe
+    enough: Date.parse(h[0].date) <= cutoffMs,
+    from:window[0]?.date, to:last.date
+  };
+}
+
+/** Compat : ancien appel [montant, pourcentage]. */
+function perfPeriod(period){
+  const w = periodWindow(period);
+  return [sEur(w.gain), sPct(w.pct)];
 }
 
 /** Série d'un compte : historique réel si disponible, sinon droite début → aujourd'hui. */
@@ -481,10 +523,6 @@ function header(){
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:16px">
-      ${segControl([
-        {value:'Mensuel',label:'Mensuel'},{value:'Trimestriel',label:'Trimestriel'},
-        {value:'Annuel',label:'Annuel'},{value:'Global',label:'Global'}
-      ], state.period, 'period')}
       <div class="btn btn-p" data-act="modal" data-arg="1">
         <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 11V2M8 2L4.5 5.5M8 2l3.5 3.5M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
         Importer des données
@@ -535,9 +573,19 @@ function kpiRow(){
 }
 
 function chartCard(){
-  const pts = hist().slice(-24);
+  // le graphe suit la période choisie (sélecteur dans l'en-tête de cette carte)
+  const win = periodWindow();
+  const pts = win.points.slice(-60);
+  const periodSeg = segControl([
+    {value:'Mensuel',label:'1 mois'},{value:'Trimestriel',label:'3 mois'},
+    {value:'Annuel',label:'1 an'},{value:'Global',label:'Tout'}
+  ], state.period, 'period');
+
   const c = chart(pts, 720, 214, 24);
-  if (!c) return `<div class="card lg"><div class="card-t">Mise vs gains</div><div class="empty">Historique insuffisant — il se construit à chaque valorisation.</div></div>`;
+  if (!c) return `<div class="card lg">
+    <div class="row-between"><div class="card-t">Mise vs gains</div>${periodSeg}</div>
+    <div class="empty">Historique insuffisant — il se construit à raison d'un point par jour, dès la première valorisation.</div>
+  </div>`;
 
   const hi = state.hov;
   const zones = pts.map((p,i) => {
@@ -574,8 +622,16 @@ function chartCard(){
   return `
   <div class="card lg">
     <div class="row-between">
-      <div class="card-t">Mise vs gains</div>
-      <span style="font-size:13px;color:var(--mut2)">Sur ${eur0(t.capital)} versés, ${sEur(t.pv)} produits par le portefeuille</span>
+      <div>
+        <div class="card-t">Mise vs gains</div>
+        <div class="card-s">
+          Performance ${win.label} :
+          <span class="mono ${cls(win.gain)}" style="font-weight:600">${sEur(win.gain)}</span>
+          <span class="mono ${cls(win.gain)}" style="font-weight:600">${sPct(win.pct)}</span>
+          ${win.enough ? '' : `<span style="color:var(--mut3)"> · historique encore trop court pour cette période</span>`}
+        </div>
+      </div>
+      ${periodSeg}
     </div>
     <div style="position:relative;margin-top:22px">
       <svg width="100%" height="200" viewBox="0 0 720 214" preserveAspectRatio="none" style="display:block">
@@ -1354,17 +1410,100 @@ function viewOps(){
    ============================================================ */
 function modal(){
   if (!state.modal) return '';
+  const onSaisie = state.modalTab === 'saisie';
   return `
   <div class="overlay" data-act="modal" data-arg="0">
     <div class="modal" data-act="stop">
       <div class="head-block">
         <div>
-          <div style="font-size:24px;font-weight:400;letter-spacing:-.5px">Importer des données</div>
-          <div style="font-size:14px;color:var(--mut);margin-top:4px">Fichier CSV ou export XLSX — opérations ou positions</div>
+          <div style="font-size:24px;font-weight:400;letter-spacing:-.5px">Ajouter des données</div>
+          <div style="font-size:14px;color:var(--mut);margin-top:4px">Saisis tes lignes à la main, ou importe un fichier de ton courtier</div>
         </div>
         <div class="close" data-act="modal" data-arg="0">✕</div>
       </div>
+
+      <div class="segbar" style="display:flex;background:var(--bg);border-radius:100px;padding:4px;gap:2px">
+        <div class="seg-item${onSaisie ? ' on' : ''}" style="flex:1;text-align:center" data-act="modalTab" data-arg="saisie">Saisie manuelle</div>
+        <div class="seg-item${onSaisie ? '' : ' on'}" style="flex:1;text-align:center" data-act="modalTab" data-arg="fichier">Fichier CSV / XLSX</div>
+      </div>
+
       ${reportBox()}
+      ${onSaisie ? manualForm() : fileImportPanel()}
+    </div>
+  </div>`;
+}
+
+/* ---------- saisie manuelle d'une ligne ---------- */
+const CATS = [
+  ['Actions en direct', 'Action (Air Liquide, TotalEnergies…)'],
+  ['ETF actions', 'ETF actions (MSCI World, S&P 500…)'],
+  ['Obligations', 'Obligation / ETF obligataire'],
+  ['Fonds euro', 'Fonds euro (assurance vie)'],
+  ['Liquidités', 'Liquidités / espèces']
+];
+
+function manualForm(){
+  const comptes = [...new Set([...Object.keys(snap?.comptes || {}), 'PEA', 'Assurance Vie', 'Livret A'])];
+  const lines = (snap?.lines || []);
+  return `
+    <form id="posForm">
+      <div class="field">
+        <label for="pName">Libellé *</label>
+        <input id="pName" required placeholder="ex. Air Liquide, Amundi MSCI World…">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="field">
+          <label for="pCat">Type de ligne *</label>
+          <select id="pCat" style="height:44px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:15px;font-family:inherit;background:#fff">
+            ${CATS.map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field">
+          <label for="pCompte">Enveloppe *</label>
+          <input id="pCompte" list="comptesList" value="PEA" required>
+          <datalist id="comptesList">${comptes.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div class="field"><label for="pQty">Quantité *</label><input id="pQty" type="text" inputmode="decimal" placeholder="2" required></div>
+        <div class="field"><label for="pPru">PRU (prix d'achat) *</label><input id="pPru" type="text" inputmode="decimal" placeholder="258,28" required></div>
+        <div class="field"><label for="pPrice">Cours actuel</label><input id="pPrice" type="text" inputmode="decimal" placeholder="auto"></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div class="field"><label for="pIsin">ISIN <span style="font-weight:400;color:var(--mut2)">(pour la cotation auto)</span></label><input id="pIsin" placeholder="FR0000120073"></div>
+        <div class="field"><label for="pTicker">Ticker <span style="font-weight:400;color:var(--mut2)">(ou symbole ex. AI.PA)</span></label><input id="pTicker" placeholder="AI"></div>
+      </div>
+      <div style="font-size:12px;color:var(--mut2);line-height:1.5;margin-bottom:14px">
+        Sans ISIN ni ticker, la ligne est suivie au prix que tu saisis (pas de cotation automatique).
+        Ressaisir le même libellé dans la même enveloppe met la ligne à jour.
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <div class="btn btn-s" data-act="modal" data-arg="0">Fermer</div>
+        <button type="submit" class="btn btn-p" style="border:0;font-family:inherit" ${state.importing ? 'disabled' : ''}>
+          ${state.importing ? '<span class="spin"></span>' : ''}Enregistrer la ligne
+        </button>
+      </div>
+    </form>
+    ${lines.length ? `
+    <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line2)">
+      <div class="th" style="font-size:12px;margin-bottom:8px">Lignes actuelles (${lines.length})</div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow:auto">
+        ${lines.map(l => `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.name)}</div>
+              <div style="font-size:11px;color:var(--mut2)">${esc(l.compte)} · ${l.qty} × ${eur(l.pru)} · ${esc(l.classe)}</div>
+            </div>
+            <span class="mono" style="font-size:13px;flex:none">${eur(l.value)}</span>
+            <span style="font-size:12px;font-weight:600;color:var(--red);cursor:pointer;flex:none"
+                  data-act="delPos" data-arg="${esc(l.name)}|${esc(l.compte)}">Suppr.</span>
+          </div>`).join('')}
+      </div>
+    </div>` : ''}`;
+}
+
+function fileImportPanel(){
+  return `
       <div class="dropzone" data-act="pick" data-drop="1" style="border-color:var(--blue);background:#f7f9ff;padding:36px">
         ${uploadIcon(28,'#0052ff')}
         <div style="font-size:16px;font-weight:600">Dépose ton fichier ou parcours</div>
@@ -1386,12 +1525,10 @@ function modal(){
         </div>
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center">
-        <span style="font-size:12px;color:var(--mut2);margin-right:auto">Les colonnes sont reconnues automatiquement (FR/EN).</span>
+        <span style="font-size:12px;color:var(--mut2);margin-right:auto">Les colonnes sont reconnues automatiquement (FR/EN). Fichier .xls : réenregistre-le en .xlsx.</span>
         <div class="btn btn-s" data-act="modal" data-arg="0">Fermer</div>
         <div class="btn btn-p" data-act="pick">Choisir un fichier</div>
-      </div>
-    </div>
-  </div>`;
+      </div>`;
 }
 
 /* ============================================================
@@ -1422,6 +1559,7 @@ function render(){
   }
   app.innerHTML = `<div class="shell">${sidebar()}<main>${header()}${VIEWS[state.view]()}</main></div>${modal()}`;
   app.querySelectorAll('[data-leave]').forEach(el => el.addEventListener('mouseleave', () => set({ [el.dataset.leave]: null })));
+  wirePositionForm();
   app.querySelectorAll('[data-drop]').forEach(el => {
     el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('over'); });
     el.addEventListener('dragleave', () => el.classList.remove('over'));
@@ -1487,6 +1625,38 @@ function wireAuthForm(){
   });
 }
 
+/** Formulaire de saisie manuelle d'une ligne (action, ETF, obligation…). */
+function wirePositionForm(){
+  const form = app.querySelector('#posForm');
+  if (!form) return;
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const v = id => app.querySelector('#' + id)?.value ?? '';
+    // les montants sont saisis en français (virgule décimale) → Core.num
+    const pos = {
+      name: v('pName'), cat: v('pCat'), compte: v('pCompte'),
+      qty: window.PatrimoineCore.num(v('pQty')),
+      pru: window.PatrimoineCore.num(v('pPru')),
+      price: window.PatrimoineCore.num(v('pPrice')),
+      isin: v('pIsin'), ticker: v('pTicker')
+    };
+    // une ligne sans identifiant de marché ne peut pas être cotée : on la marque
+    // manuelle pour qu'elle n'apparaisse pas en « cotation indisponible ».
+    if (!pos.isin && !pos.ticker) pos.manual = true;
+
+    set({ importing:true, report:null });
+    try {
+      const res = await window.PatrimoineData.savePosition(pos);
+      state.report = { report:{ file:res.name, kind:'positions', added:res.created ? 1 : 0, updated:res.created ? 0 : 1, removed:0, skipped:0 } };
+    } catch (e2) {
+      state.report = { error:e2.message };
+    } finally {
+      set({ importing:false });
+      render();
+    }
+  });
+}
+
 async function upload(file){
   set({ importing:true, report:null });
   try {
@@ -1514,8 +1684,16 @@ const ACTIONS = {
   tab:    v => set({ tab:v, seg:null }),
   filt:   v => set({ filt:v }),
   modal:  v => set({ modal:v === '1', report:null }),
+  modalTab: v => set({ modalTab:v, report:null }),
   pick:   () => picker.click(),
   retryData: subscribeData,
+  delPos: async arg => {
+    const [name, compte] = String(arg).split('|');
+    if (!confirm(`Supprimer la ligne « ${name} » ?`)) return;
+    try { await window.PatrimoineData.removePosition(name, compte); state.report = null; }
+    catch (e) { state.report = { error:e.message }; }
+    render();
+  },
   stop:   () => {},
   signOut: () => window.PatrimoineAuth.signOut(),
   authToggle: () => set({ authMode: state.authMode === 'signup' ? 'signin' : 'signup', authError:null }),
