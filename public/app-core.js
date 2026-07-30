@@ -501,6 +501,120 @@
     return { added, updated, removed: before - portfolio.positions.length };
   }
 
+  /**
+   * Reconstruit les lignes détenues à partir du journal d'opérations.
+   *
+   * Un CSV d'opérations (achats, ventes, versements) ne contient pas de
+   * positions : sans cette reconstruction, importer un relevé de transactions
+   * donnait un patrimoine à zéro. Les achats cumulent quantité et prix de
+   * revient (moyenne pondérée), les ventes réduisent la quantité en laissant le
+   * PRU inchangé.
+   *
+   * Les lignes explicites (instantané de positions importé, ou saisie manuelle)
+   * font toujours foi : on ne dérive que ce qui manque, pour ne jamais compter
+   * deux fois le même titre.
+   *
+   * @returns {{positions: Array, cash: Object}}
+   */
+  function deriveFromOperations(portfolio) {
+    // Chronologique : le journal est stocké du plus récent au plus ancien, or
+    // une vente traitée avant son achat faussait la quantité et le PRU.
+    const ops = [...(portfolio.operations || [])].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+
+    // Index de TOUS les identifiants des lignes explicites (ISIN, ticker, nom) :
+    // un instantané identifie par ISIN et le journal par ticker, sans quoi la
+    // même valeur apparaîtrait deux fois.
+    const explicit = new Set();
+    for (const p of portfolio.positions || []) {
+      for (const id of [p.isin, p.ticker, p.name]) {
+        if (id) explicit.add((p.compte || '') + '::' + String(id).toUpperCase());
+      }
+    }
+    const comptesWithExplicit = new Set((portfolio.positions || []).map(p => p.compte));
+
+    const held = new Map();      // compte::clé → { compte, name, ticker, isin, qty, cost }
+    const flow = {};             // compte → solde de trésorerie déduit des flux
+
+    for (const o of ops) {
+      const compte = o.compte || 'PEA';
+      const montant = Number(o.montant) || 0;
+      flow[compte] = round2((flow[compte] || 0) + montant);
+
+      if (o.type !== 'Achat' && o.type !== 'Vente') continue;
+
+      const label = (o.ticker || o.isin || o.libelle || '').trim();
+      if (!label) continue;
+
+      // quantité : celle de l'opération, sinon déduite du montant et du prix
+      let qty = Number(o.qty);
+      const price = Number(o.price);
+      let amountOnly = false;
+      if (!Number.isFinite(qty) || qty <= 0) {
+        if (Number.isFinite(price) && price > 0) {
+          qty = Math.abs(montant) / price;
+        } else {
+          // Ni quantité ni cours : impossible de suivre le titre au marché. On
+          // conserve quand même le montant investi (qty=1, PRU=montant cumulé),
+          // sinon l'argent dépensé disparaîtrait du patrimoine. La ligne est
+          // marquée non cotable plutôt que d'afficher une fausse cotation.
+          qty = 1;
+          amountOnly = true;
+        }
+      }
+      const cost = amountOnly ? Math.abs(montant)
+        : (Number.isFinite(price) && price > 0 ? qty * price : Math.abs(montant));
+
+      const k = compte + '::' + label.toUpperCase();
+      const cur = held.get(k) || { compte, name: o.libelle || label, ticker: o.ticker || '', isin: o.isin || '', qty: 0, cost: 0, amountOnly: false };
+      if (amountOnly) cur.amountOnly = true;
+      if (amountOnly && o.type === 'Achat') {
+        // cumul du montant investi, la « quantité » reste 1
+        cur.qty = 1;
+        cur.cost = cur.cost + cost;
+        held.set(k, cur);
+        continue;
+      }
+      if (o.type === 'Achat') {
+        cur.qty = cur.qty + qty;
+        cur.cost = cur.cost + cost;
+      } else {
+        const pru = cur.qty > 0 ? cur.cost / cur.qty : 0;
+        cur.qty = cur.qty - qty;
+        cur.cost = Math.max(0, cur.cost - qty * pru);   // PRU conservé sur le reliquat
+      }
+      held.set(k, cur);
+    }
+
+    const positions = [];
+    for (const [k, h] of held) {
+      if (h.qty <= 0.0000001) continue;                 // ligne soldée
+      // couverte par une ligne explicite sous n'importe lequel de ses identifiants
+      const ids = [h.isin, h.ticker, h.name].filter(Boolean).map(id => h.compte + '::' + String(id).toUpperCase());
+      if (ids.some(id => explicit.has(id)) || explicit.has(k)) continue;
+      positions.push({
+        compte: h.compte, name: h.name, ticker: h.ticker, isin: h.isin,
+        qty: round2(h.qty * 1000000) / 1000000,
+        pru: round2(h.cost / h.qty),
+        price: round2(h.cost / h.qty),                  // en attente de cotation
+        cat: '', derived: true,
+        // sans quantité connue, la ligne n'est pas cotable au marché
+        ...(h.amountOnly ? { manual: true, amountOnly: true } : {})
+      });
+    }
+
+    // Trésorerie déduite : seulement pour les enveloppes sans instantané de
+    // positions. Là où un instantané existe, il est réputé complet — sinon un
+    // versement non suivi d'un achat dans le journal gonflerait le total.
+    const cash = {};
+    for (const [compte, solde] of Object.entries(flow)) {
+      if (comptesWithExplicit.has(compte)) continue;
+      if (portfolio.cash && portfolio.cash[compte] != null) continue;
+      if (portfolio.balances && portfolio.balances[compte] != null) continue;
+      if (solde > 0.005) cash[compte] = solde;
+    }
+    return { positions, cash };
+  }
+
   function classOf(pos) {
     const s = (pos.cat + ' ' + pos.name).toLowerCase();
     if (/fonds euro/.test(s)) return 'Fonds euro';
@@ -562,7 +676,12 @@
     const live = quoteMap.size > 0;
     let quotesOk = 0; const quotesFailed = [];
 
-    const lines = portfolio.positions.map(p => {
+    // lignes explicites + lignes reconstruites depuis le journal d'opérations
+    const derived = deriveFromOperations(portfolio);
+    const allPositions = [...(portfolio.positions || []), ...derived.positions];
+    const allCash = { ...derived.cash, ...(portfolio.cash || {}) };
+
+    const lines = allPositions.map(p => {
       const q = quoteMap.get(keyOf(p));
       const price = (q && typeof q.price === 'number') ? q.price : (p.price ?? p.pru ?? 0);
       if (q && typeof q.price === 'number' && !q.stale) quotesOk++;
@@ -585,7 +704,7 @@
     });
 
     const comptes = {};
-    for (const [name, cash] of Object.entries(portfolio.cash || {}))
+    for (const [name, cash] of Object.entries(allCash))
       comptes[name] = { name, value: round2(cash), mise: round2(cash), pv: 0, pvPct: 0, cash: round2(cash), lines: [], dayChange: 0 };
     for (const l of lines) {
       const c = comptes[l.compte] || (comptes[l.compte] = { name: l.compte, value: 0, mise: 0, pv: 0, pvPct: 0, cash: 0, lines: [], dayChange: 0 });
@@ -633,6 +752,6 @@
   glob.PatrimoineCore = {
     parseFile, parseCsv, parseXlsx, mapColumns, detectKind,
     value, mergeOperations, mergePositions, classOf, quoteRequest, keyOf,
-    num, date, slug, round2, iso, frDate, EMPTY
+    deriveFromOperations, num, date, slug, round2, iso, frDate, EMPTY
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

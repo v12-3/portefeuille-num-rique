@@ -150,6 +150,7 @@ async function fetchQuotes(positions) {
   if (!WORKER_URL) return new Map();
   const req = Core.quoteRequest(positions);
   if (!req.length) return new Map();
+
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), 15000);
   try {
@@ -172,7 +173,13 @@ async function recompute(live) {
   let quoteMap = new Map();
   if (live && WORKER_URL) {
     refreshing = true; emitStatus();
-    try { quoteMap = await fetchQuotes(rawPortfolio.positions); }
+    // inclut les lignes reconstruites depuis les opérations, sinon un
+    // portefeuille issu d'un CSV de transactions ne serait jamais coté
+    const toQuote = [
+      ...(rawPortfolio.positions || []),
+      ...Core.deriveFromOperations(rawPortfolio).positions
+    ];
+    try { quoteMap = await fetchQuotes(toQuote); }
     finally { refreshing = false; }
   }
 

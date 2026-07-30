@@ -10,9 +10,9 @@
 <!-- ?v= : numéro à incrémenter à chaque déploiement qui touche ces fichiers.
      Sans lui, un navigateur ayant déjà mis un module en cache continue de servir
      l'ancienne version jusqu'à expiration, et l'app paraît « ne pas se mettre à jour ». -->
-<script src="/firebase-config.js?v=2"></script>
-<script src="/app-core.js?v=2"></script>
-<script type="module" src="/firebase-client.js?v=2"></script>
+<script src="/firebase-config.js?v=3"></script>
+<script src="/app-core.js?v=3"></script>
+<script type="module" src="/firebase-client.js?v=3"></script>
 <style>
 :root{
   --blue:#0052ff; --blue-d:#003ecc; --blue-l:#4d84ff;
@@ -300,7 +300,7 @@ const monthLong  = s => s ? MLABEL[Number(s.slice(5,7))-1].toLowerCase() + ' ' +
    État
    ============================================================ */
 const state = {
-  view:'global', period:CONFIG.defaultPeriod, modal:false, modalTab:'saisie', filt:'Tous',
+  view:'global', period:CONFIG.defaultPeriod, modal:false, modalTab:'saisie', pendingFile:null, filt:'Tous',
   hov:null, year:2026, dHov:null, env:'Tout', tab:'titre', seg:null,
   importing:false, report:null,
   user:undefined,                    // undefined = état d'auth pas encore connu, null = déconnecté
@@ -1503,12 +1503,29 @@ function manualForm(){
 }
 
 function fileImportPanel(){
+  const f = state.pendingFile;
   return `
+      ${f ? `
+      <div style="border:1px solid var(--line);border-radius:16px;padding:18px 20px;display:flex;align-items:center;gap:14px">
+        <div class="avatar" style="background:#eaf0ff;color:var(--blue)">✓</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(f.name)}</div>
+          <div style="font-size:12px;color:var(--mut2)">${(f.size/1024).toLocaleString('fr-FR',{maximumFractionDigits:1})} Ko · prêt à importer</div>
+        </div>
+        <div class="btn btn-s" style="height:36px;font-size:13px" data-act="pick">Changer</div>
+      </div>
+      <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center">
+        <span style="font-size:12px;color:var(--mut2);margin-right:auto">Vérifie le nom du fichier, puis lance l'import.</span>
+        <div class="btn btn-s" data-act="modal" data-arg="0">Annuler</div>
+        <div class="btn btn-p" data-act="runImport">
+          ${state.importing ? '<span class="spin"></span>Import en cours…' : "Lancer l'import"}
+        </div>
+      </div>` : `
       <div class="dropzone" data-act="pick" data-drop="1" style="border-color:var(--blue);background:#f7f9ff;padding:36px">
         ${uploadIcon(28,'#0052ff')}
         <div style="font-size:16px;font-weight:600">Dépose ton fichier ou parcours</div>
         <div style="font-size:13px;color:var(--mut)">CSV, TSV ou XLSX · 10 Mo maximum</div>
-      </div>
+      </div>`}
       <div>
         <div class="th" style="font-size:12px;margin-bottom:10px">Opérations</div>
         <div class="code">
@@ -1524,11 +1541,12 @@ function fileImportPanel(){
           <div>PEA;Schneider Electric;FR0000121972;2;258,28;269,95</div>
         </div>
       </div>
+      ${f ? '' : `
       <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center">
         <span style="font-size:12px;color:var(--mut2);margin-right:auto">Les colonnes sont reconnues automatiquement (FR/EN). Fichier .xls : réenregistre-le en .xlsx.</span>
         <div class="btn btn-s" data-act="modal" data-arg="0">Fermer</div>
         <div class="btn btn-p" data-act="pick">Choisir un fichier</div>
-      </div>`;
+      </div>`}`;
 }
 
 /* ============================================================
@@ -1670,10 +1688,12 @@ async function upload(file){
   }
 }
 
+// Le fichier choisi est mis en attente : l'import ne part qu'au clic sur
+// « Lancer l'import », pour que la sélection soit visible et confirmable.
 picker.addEventListener('change', () => {
   const f = picker.files?.[0];
   picker.value = '';
-  if (f) upload(f);
+  if (f) set({ pendingFile:f, report:null, modal:true, modalTab:'fichier' });
 });
 
 const ACTIONS = {
@@ -1686,6 +1706,12 @@ const ACTIONS = {
   modal:  v => set({ modal:v === '1', report:null }),
   modalTab: v => set({ modalTab:v, report:null }),
   pick:   () => picker.click(),
+  runImport: async () => {
+    const f = state.pendingFile;
+    if (!f || state.importing) return;
+    await upload(f);
+    set({ pendingFile:null });
+  },
   retryData: subscribeData,
   delPos: async arg => {
     const [name, compte] = String(arg).split('|');
