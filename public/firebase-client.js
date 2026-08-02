@@ -269,11 +269,19 @@ const posId = p => (p.isin || p.ticker || p.name || '').toUpperCase() + '|' + (p
  */
 async function savePosition(pos) {
   await ensureLoaded();
+
+  // Un seul champ « nom ou ISIN » côté formulaire : un code ISIN (2 lettres +
+  // 10 caractères) est reconnu comme tel, sinon c'est un libellé. Un ticker
+  // court en majuscules (SU, AI…) sert d'identifiant de cotation.
+  const raw = String(pos.nameOrIsin ?? pos.name ?? '').trim();
+  const isIsin = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/i.test(raw.replace(/\s/g, ''));
+  const looksTicker = !isIsin && /^[A-Z0-9.\-]{1,8}$/.test(raw) && raw === raw.toUpperCase();
+
   const clean = {
     compte: String(pos.compte || '').trim() || 'PEA',
-    name: String(pos.name || '').trim(),
-    ticker: String(pos.ticker || '').trim().toUpperCase(),
-    isin: String(pos.isin || '').trim().toUpperCase(),
+    name: String(pos.name || raw).trim(),
+    ticker: String(pos.ticker || (looksTicker ? raw : '')).trim().toUpperCase(),
+    isin: String(pos.isin || (isIsin ? raw.replace(/\s/g, '') : '')).trim().toUpperCase(),
     qty: Number(pos.qty),
     pru: Number(pos.pru),
     cat: String(pos.cat || '').trim()
@@ -288,10 +296,25 @@ async function savePosition(pos) {
   if (pos.manual) clean.manual = true;                                     // ligne jamais cotée (fonds euro…)
 
   rawPortfolio.positions = rawPortfolio.positions || [];
-  const idx = rawPortfolio.positions.findIndex(x => posId(x) === posId(clean));
+  // remplacement : l'ancienne clé peut différer (libellé corrigé lors d'une modification)
+  const prevKey = pos.replaces ? String(pos.replaces).toUpperCase() + '|' + clean.compte : null;
+  const idx = rawPortfolio.positions.findIndex(x => posId(x) === posId(clean) || (prevKey && posId(x) === prevKey));
   const created = idx < 0;
   if (created) rawPortfolio.positions.push({ ...clean, addedAt: new Date().toISOString().slice(0, 10) });
   else rawPortfolio.positions[idx] = { ...rawPortfolio.positions[idx], ...clean };
+
+  // La date d'achat alimente le journal : elle donne l'historique et la date de
+  // première position. Doublon ignoré si la même opération existe déjà.
+  const buyDate = Core.date(pos.date);
+  if (buyDate && clean.qty > 0 && clean.pru >= 0) {
+    rawPortfolio.operations = rawPortfolio.operations || [];
+    Core.mergeOperations(rawPortfolio, [{
+      date: buyDate, compte: clean.compte, type: 'Achat',
+      libelle: clean.name, ticker: clean.ticker, isin: clean.isin,
+      montant: -Math.abs(Core.round2(clean.qty * clean.pru)),
+      qty: clean.qty, price: clean.pru
+    }]);
+  }
 
   await setDoc(mainRef(), rawPortfolio);
   lastSnapshot = Core.value(rawPortfolio, new Map());
@@ -300,14 +323,64 @@ async function savePosition(pos) {
   return { ok: true, created, name: clean.name, snapshot: lastSnapshot };
 }
 
-/** Supprime une ligne saisie ou importée. */
+/**
+ * Supprime une ligne, qu'elle soit saisie/importée ou reconstruite depuis les
+ * opérations. Une ligne reconstruite n'existe que par ses opérations d'achat :
+ * la retirer suppose donc de supprimer ces opérations, sinon elle réapparaît au
+ * prochain calcul. Le nombre d'opérations concernées est renvoyé pour que
+ * l'interface puisse l'annoncer avant confirmation.
+ */
 async function removePosition(name, compte) {
   await ensureLoaded();
-  const before = (rawPortfolio.positions || []).length;
-  rawPortfolio.positions = (rawPortfolio.positions || []).filter(
-    x => !(x.name === name && (!compte || x.compte === compte))
-  );
-  if (rawPortfolio.positions.length === before) throw new Error(`Ligne « ${name} » introuvable.`);
+  const sameCompte = x => !compte || x.compte === compte;
+
+  const explicitBefore = (rawPortfolio.positions || []).length;
+  const target = (rawPortfolio.positions || []).find(x => x.name === name && sameCompte(x));
+  rawPortfolio.positions = (rawPortfolio.positions || []).filter(x => !(x.name === name && sameCompte(x)));
+  const removedExplicit = explicitBefore - rawPortfolio.positions.length;
+
+  // identifiants de la ligne, pour retrouver ses opérations
+  const ids = new Set([target?.isin, target?.ticker, name].filter(Boolean).map(s => String(s).toUpperCase()));
+  const opsBefore = (rawPortfolio.operations || []).length;
+  rawPortfolio.operations = (rawPortfolio.operations || []).filter(o => {
+    if (!sameCompte(o)) return true;
+    if (o.type !== 'Achat' && o.type !== 'Vente') return true;     // versements/dividendes conservés
+    const label = String(o.ticker || o.isin || o.libelle || '').toUpperCase();
+    return !(ids.has(label) || String(o.libelle || '').toUpperCase() === String(name).toUpperCase());
+  });
+  const removedOps = opsBefore - rawPortfolio.operations.length;
+
+  if (!removedExplicit && !removedOps) throw new Error(`Ligne « ${name} » introuvable.`);
+
+  await setDoc(mainRef(), rawPortfolio);
+  lastSnapshot = Core.value(rawPortfolio, new Map());
+  emit();
+  return { ok: true, removedExplicit, removedOps, snapshot: lastSnapshot };
+}
+
+/** Combien d'opérations d'achat/vente portent cette ligne (pour prévenir avant suppression). */
+function countPositionOperations(name, compte) {
+  const p = rawPortfolio;
+  if (!p) return 0;
+  const target = (p.positions || []).find(x => x.name === name && (!compte || x.compte === compte));
+  const ids = new Set([target?.isin, target?.ticker, name].filter(Boolean).map(s => String(s).toUpperCase()));
+  return (p.operations || []).filter(o => {
+    if (compte && o.compte !== compte) return false;
+    if (o.type !== 'Achat' && o.type !== 'Vente') return false;
+    const label = String(o.ticker || o.isin || o.libelle || '').toUpperCase();
+    return ids.has(label) || String(o.libelle || '').toUpperCase() === String(name).toUpperCase();
+  }).length;
+}
+
+/** Supprime une opération précise du journal. */
+async function removeOperation(op) {
+  await ensureLoaded();
+  const before = (rawPortfolio.operations || []).length;
+  rawPortfolio.operations = (rawPortfolio.operations || []).filter(o => !(
+    o.date === op.date && o.compte === op.compte && o.type === op.type &&
+    o.libelle === op.libelle && Number(o.montant) === Number(op.montant)
+  ));
+  if (rawPortfolio.operations.length === before) throw new Error('Opération introuvable.');
   await setDoc(mainRef(), rawPortfolio);
   lastSnapshot = Core.value(rawPortfolio, new Map());
   emit();
@@ -362,6 +435,8 @@ window.PatrimoineData = {
   pinSymbol,
   savePosition,
   removePosition,
+  removeOperation,
+  countPositionOperations,
   addOperation,
   get portfolio() { return rawPortfolio; },
   get refreshing() { return refreshing; }

@@ -10,9 +10,9 @@
 <!-- ?v= : numéro à incrémenter à chaque déploiement qui touche ces fichiers.
      Sans lui, un navigateur ayant déjà mis un module en cache continue de servir
      l'ancienne version jusqu'à expiration, et l'app paraît « ne pas se mettre à jour ». -->
-<script src="/firebase-config.js?v=3"></script>
-<script src="/app-core.js?v=3"></script>
-<script type="module" src="/firebase-client.js?v=3"></script>
+<script src="/firebase-config.js?v=4"></script>
+<script src="/app-core.js?v=4"></script>
+<script type="module" src="/firebase-client.js?v=4"></script>
 <style>
 :root{
   --blue:#0052ff; --blue-d:#003ecc; --blue-l:#4d84ff;
@@ -300,7 +300,8 @@ const monthLong  = s => s ? MLABEL[Number(s.slice(5,7))-1].toLowerCase() + ' ' +
    État
    ============================================================ */
 const state = {
-  view:'global', period:CONFIG.defaultPeriod, modal:false, modalTab:'saisie', pendingFile:null, filt:'Tous',
+  view:'global', period:CONFIG.defaultPeriod, modal:false, modalTab:'saisie', pendingFile:null,
+  editing:null, formCompte:'PEA', filt:'Tous',
   hov:null, year:2026, dHov:null, env:'Tout', tab:'titre', seg:null,
   importing:false, report:null,
   user:undefined,                    // undefined = état d'auth pas encore connu, null = déconnecté
@@ -1433,70 +1434,92 @@ function modal(){
   </div>`;
 }
 
-/* ---------- saisie manuelle d'une ligne ---------- */
-const CATS = [
-  ['Actions en direct', 'Action (Air Liquide, TotalEnergies…)'],
-  ['ETF actions', 'ETF actions (MSCI World, S&P 500…)'],
-  ['Obligations', 'Obligation / ETF obligataire'],
-  ['Fonds euro', 'Fonds euro (assurance vie)'],
-  ['Liquidités', 'Liquidités / espèces']
-];
+/* ---------- saisie manuelle d'une ligne ----------
+   Le type d'actif (action, ETF, obligation, fonds euro…) n'est plus demandé :
+   il est déduit du libellé et de l'enveloppe par PatrimoineCore.classOf. */
+
+/** Une enveloppe de type livret / fonds euro se saisit en solde, pas en titres. */
+const isSoldeCompte = c => /livret|ldds|lep|pel|cel|fonds euro|epargne|épargne|compte courant/i.test(c || '');
 
 function manualForm(){
-  const comptes = [...new Set([...Object.keys(snap?.comptes || {}), 'PEA', 'Assurance Vie', 'Livret A'])];
+  const comptes = [...new Set(['PEA', 'Assurance Vie', 'Livret A', ...Object.keys(snap?.comptes || {})])];
   const lines = (snap?.lines || []);
+  const ed = state.editing;                                  // ligne en cours de modification
+  const compteVal = ed?.compte || state.formCompte || 'PEA';
+  const solde = isSoldeCompte(compteVal);
+  const today = new Date().toISOString().slice(0,10);
+
+  const enveloppeChips = comptes.map(c =>
+    `<div class="seg-item${c === compteVal ? ' on' : ''}" style="padding:8px 14px;font-size:13px" data-act="formCompte" data-arg="${esc(c)}">${esc(c)}</div>`
+  ).join('');
+
   return `
     <form id="posForm">
       <div class="field">
-        <label for="pName">Libellé *</label>
-        <input id="pName" required placeholder="ex. Air Liquide, Amundi MSCI World…">
+        <label>Enveloppe</label>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;background:var(--bg);border-radius:100px;padding:4px">${enveloppeChips}</div>
       </div>
+
+      ${solde ? `
+      <!-- livret / fonds euro : un solde, pas des titres -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="field">
-          <label for="pCat">Type de ligne *</label>
-          <select id="pCat" style="height:44px;border:1px solid var(--line);border-radius:12px;padding:0 12px;font-size:15px;font-family:inherit;background:#fff">
-            ${CATS.map(([v,l]) => `<option value="${v}">${l}</option>`).join('')}
-          </select>
+          <label for="pSolde">Montant sur le livret *</label>
+          <input id="pSolde" type="text" inputmode="decimal" placeholder="6 681,68" value="${ed ? String(ed.value ?? '').replace('.', ',') : ''}" required>
         </div>
         <div class="field">
-          <label for="pCompte">Enveloppe *</label>
-          <input id="pCompte" list="comptesList" value="PEA" required>
-          <datalist id="comptesList">${comptes.map(c => `<option value="${esc(c)}">`).join('')}</datalist>
+          <label for="pTaux">Taux annuel (%)</label>
+          <input id="pTaux" type="text" inputmode="decimal" placeholder="2,4" value="${snap?.comptes?.[compteVal]?.taux ?? ''}">
         </div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
-        <div class="field"><label for="pQty">Quantité *</label><input id="pQty" type="text" inputmode="decimal" placeholder="2" required></div>
-        <div class="field"><label for="pPru">PRU (prix d'achat) *</label><input id="pPru" type="text" inputmode="decimal" placeholder="258,28" required></div>
-        <div class="field"><label for="pPrice">Cours actuel</label><input id="pPrice" type="text" inputmode="decimal" placeholder="auto"></div>
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-        <div class="field"><label for="pIsin">ISIN <span style="font-weight:400;color:var(--mut2)">(pour la cotation auto)</span></label><input id="pIsin" placeholder="FR0000120073"></div>
-        <div class="field"><label for="pTicker">Ticker <span style="font-weight:400;color:var(--mut2)">(ou symbole ex. AI.PA)</span></label><input id="pTicker" placeholder="AI"></div>
       </div>
       <div style="font-size:12px;color:var(--mut2);line-height:1.5;margin-bottom:14px">
-        Sans ISIN ni ticker, la ligne est suivie au prix que tu saisis (pas de cotation automatique).
-        Ressaisir le même libellé dans la même enveloppe met la ligne à jour.
+        Le solde remplace la valeur précédente. Le taux sert à estimer les intérêts de l'année.
+      </div>` : `
+      <div class="field">
+        <label for="pName">Nom ou code ISIN *</label>
+        <input id="pName" required placeholder="Air Liquide  ·  ou  FR0000120073" value="${ed ? esc(ed.isin || ed.name || '') : ''}">
       </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end">
-        <div class="btn btn-s" data-act="modal" data-arg="0">Fermer</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+        <div class="field">
+          <label for="pQty">Quantité *</label>
+          <input id="pQty" type="text" inputmode="decimal" placeholder="4" value="${ed ? String(ed.qty ?? '').replace('.', ',') : ''}" required>
+        </div>
+        <div class="field">
+          <label for="pPru">Prix d'achat *</label>
+          <input id="pPru" type="text" inputmode="decimal" placeholder="168,40" value="${ed ? String(ed.pru ?? '').replace('.', ',') : ''}" required>
+        </div>
+        <div class="field">
+          <label for="pDate">Date d'achat</label>
+          <input id="pDate" type="date" max="${today}" value="${ed?.buyDate || today}">
+        </div>
+      </div>
+      <div style="font-size:12px;color:var(--mut2);line-height:1.5;margin-bottom:14px">
+        Avec un code ISIN (ou un ticker comme <span class="mono">AI</span>), le cours est récupéré automatiquement.
+        Avec un simple nom, la ligne reste au prix que tu saisis.
+      </div>`}
+
+      <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center">
+        ${ed ? `<span style="font-size:12px;color:var(--mut2);margin-right:auto">Modification de « ${esc(ed.name)} »</span>
+                <div class="btn btn-s" data-act="cancelEdit">Annuler</div>` : `<div class="btn btn-s" data-act="modal" data-arg="0">Fermer</div>`}
         <button type="submit" class="btn btn-p" style="border:0;font-family:inherit" ${state.importing ? 'disabled' : ''}>
-          ${state.importing ? '<span class="spin"></span>' : ''}Enregistrer la ligne
+          ${state.importing ? '<span class="spin"></span>' : ''}${ed ? 'Enregistrer les modifications' : (solde ? 'Enregistrer le solde' : 'Ajouter la ligne')}
         </button>
       </div>
     </form>
+
     ${lines.length ? `
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line2)">
-      <div class="th" style="font-size:12px;margin-bottom:8px">Lignes actuelles (${lines.length})</div>
-      <div style="display:flex;flex-direction:column;gap:6px;max-height:180px;overflow:auto">
+      <div class="th" style="font-size:12px;margin-bottom:8px">Mes lignes (${lines.length}) — clique pour modifier</div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:230px;overflow:auto">
         ${lines.map(l => `
           <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px">
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.name)}</div>
-              <div style="font-size:11px;color:var(--mut2)">${esc(l.compte)} · ${l.qty} × ${eur(l.pru)} · ${esc(l.classe)}</div>
+              <div style="font-size:11px;color:var(--mut2)">${esc(l.compte)} · ${l.qty} × ${eur(l.pru)}${l.live ? ' · coté' : ''}</div>
             </div>
             <span class="mono" style="font-size:13px;flex:none">${eur(l.value)}</span>
-            <span style="font-size:12px;font-weight:600;color:var(--red);cursor:pointer;flex:none"
-                  data-act="delPos" data-arg="${esc(l.name)}|${esc(l.compte)}">Suppr.</span>
+            <span class="link" style="font-size:12px;cursor:pointer;flex:none" data-act="editPos" data-arg="${esc(l.name)}|${esc(l.compte)}">Modifier</span>
+            <span style="font-size:12px;font-weight:600;color:var(--red);cursor:pointer;flex:none" data-act="delPos" data-arg="${esc(l.name)}|${esc(l.compte)}">Suppr.</span>
           </div>`).join('')}
       </div>
     </div>` : ''}`;
@@ -1650,22 +1673,27 @@ function wirePositionForm(){
   form.addEventListener('submit', async e => {
     e.preventDefault();
     const v = id => app.querySelector('#' + id)?.value ?? '';
-    // les montants sont saisis en français (virgule décimale) → Core.num
-    const pos = {
-      name: v('pName'), cat: v('pCat'), compte: v('pCompte'),
-      qty: window.PatrimoineCore.num(v('pQty')),
-      pru: window.PatrimoineCore.num(v('pPru')),
-      price: window.PatrimoineCore.num(v('pPrice')),
-      isin: v('pIsin'), ticker: v('pTicker')
-    };
-    // une ligne sans identifiant de marché ne peut pas être cotée : on la marque
-    // manuelle pour qu'elle n'apparaisse pas en « cotation indisponible ».
-    if (!pos.isin && !pos.ticker) pos.manual = true;
+    const num = window.PatrimoineCore.num;
+    const ed = state.editing;
+    const compte = ed?.compte || state.formCompte || 'PEA';
 
     set({ importing:true, report:null });
     try {
-      const res = await window.PatrimoineData.savePosition(pos);
-      state.report = { report:{ file:res.name, kind:'positions', added:res.created ? 1 : 0, updated:res.created ? 0 : 1, removed:0, skipped:0 } };
+      if (isSoldeCompte(compte)) {
+        // livret / fonds euro : on enregistre un solde
+        const montant = num(v('pSolde'));
+        if (montant == null) throw new Error('Montant invalide.');
+        await window.PatrimoineData.updateBalance(compte, montant, num(v('pTaux')) ?? undefined);
+        state.report = { report:{ file:compte, kind:'positions', added:0, updated:1, removed:0, skipped:0 } };
+      } else {
+        const res = await window.PatrimoineData.savePosition({
+          nameOrIsin: v('pName'), compte,
+          qty: num(v('pQty')), pru: num(v('pPru')), date: v('pDate'),
+          replaces: ed?.name
+        });
+        state.report = { report:{ file:res.name, kind:'positions', added:res.created ? 1 : 0, updated:res.created ? 0 : 1, removed:0, skipped:0 } };
+      }
+      state.editing = null;
     } catch (e2) {
       state.report = { error:e2.message };
     } finally {
@@ -1713,10 +1741,26 @@ const ACTIONS = {
     set({ pendingFile:null });
   },
   retryData: subscribeData,
+  formCompte: v => set({ formCompte:v, editing:null }),
+  cancelEdit: () => set({ editing:null }),
+  editPos: arg => {
+    const [name, compte] = String(arg).split('|');
+    const line = (snap?.lines || []).find(l => l.name === name && l.compte === compte);
+    if (!line) return;
+    // date d'achat = première opération d'achat connue pour cette ligne
+    const ops = (snap?.operations || []).filter(o => o.compte === compte && o.type === 'Achat' &&
+      (o.libelle === name || (o.ticker && o.ticker === line.ticker) || (o.isin && o.isin === line.isin)));
+    const buyDate = ops.length ? ops[ops.length - 1].date : '';
+    set({ editing:{ ...line, buyDate }, formCompte:compte, modalTab:'saisie', modal:true, report:null });
+  },
   delPos: async arg => {
     const [name, compte] = String(arg).split('|');
-    if (!confirm(`Supprimer la ligne « ${name} » ?`)) return;
-    try { await window.PatrimoineData.removePosition(name, compte); state.report = null; }
+    const nOps = window.PatrimoineData.countPositionOperations?.(name, compte) || 0;
+    const msg = nOps
+      ? `Supprimer « ${name} » ?\n\nCette ligne provient de ${nOps} opération(s) d'achat/vente : elles seront supprimées aussi, sinon la ligne réapparaîtrait.`
+      : `Supprimer la ligne « ${name} » ?`;
+    if (!confirm(msg)) return;
+    try { await window.PatrimoineData.removePosition(name, compte); state.report = null; state.editing = null; }
     catch (e) { state.report = { error:e.message }; }
     render();
   },
