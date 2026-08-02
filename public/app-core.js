@@ -355,6 +355,143 @@
     return raw.trim();
   }
 
+  /* ============================================================
+     Reconnaissance par le contenu
+
+     Quand les en-têtes ne ressemblent à rien de connu (colonnes en langue
+     étrangère, intitulés maison, export sans en-tête), on déduit le rôle de
+     chaque colonne en observant les valeurs : dates, codes ISIN, montants
+     signés, quantités, libellés. Complète le mapping par libellé, sans jamais
+     l'écraser.
+     ============================================================ */
+
+  const ISIN_RE = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/;
+  const COMPTE_RE = /(pea|assurance|^av$|linxea|spirit|livret|ldds|lep|cto|compte titre|bourse direct)/i;
+  const TYPE_RE = /(achat|vente|buy|sell|versement|virement|dividende|coupon|interet|intérêt|retrait|souscription|arbitrage|apport|depot|dépôt)/i;
+
+  /**
+   * Une valeur ressemble-t-elle vraiment à une date ?
+   * date() est volontairement permissif (il finit par `new Date(s)`), au point
+   * d'accepter « 4 » ou « 5 » : une colonne de quantités passait pour des dates.
+   * Ici on exige une forme datée explicite, ou un sérial Excel plausible.
+   */
+  function looksLikeDate(s) {
+    const t = String(s).trim();
+    if (/^\d{4}[-/]\d{1,2}[-/]\d{1,2}/.test(t)) return true;            // 2026-07-17
+    if (/^\d{1,2}[-/.]\d{1,2}[-/.]\d{2,4}/.test(t)) return true;        // 17/07/2026
+    if (/^\d{5}(\.\d+)?$/.test(t)) { const n = Number(t); return n > 20000 && n < 60000; }
+    if (/[a-zéûà]{3,}/i.test(t) && !Number.isNaN(Date.parse(t))) return true;  // « 17 juil. 2026 »
+    return false;
+  }
+
+  /** Profil statistique d'une colonne sur un échantillon de lignes. */
+  function profile(rows, idx, sample = 60) {
+    const vals = rows.slice(0, sample).map(r => cell(r, idx)).filter(v => v !== '' && v != null);
+    if (!vals.length) return null;
+    const strs = vals.map(v => String(v).trim());
+    const nums = vals.map(num).filter(n => n != null);
+    const dates = strs.filter(s => looksLikeDate(s) && date(s));
+    const ratio = n => n / vals.length;
+    return {
+      idx, count: vals.length,
+      dateRatio: ratio(dates.length),
+      numRatio: ratio(nums.length),
+      isinRatio: ratio(strs.filter(s => ISIN_RE.test(s.replace(/\s/g, '').toUpperCase())).length),
+      compteRatio: ratio(strs.filter(s => COMPTE_RE.test(s)).length),
+      typeRatio: ratio(strs.filter(s => TYPE_RE.test(s)).length),
+      tickerRatio: ratio(strs.filter(s => /^[A-Z0-9.\-]{1,8}$/.test(s) && s === s.toUpperCase() && /[A-Z]/.test(s)).length),
+      negRatio: nums.length ? nums.filter(n => n < 0).length / nums.length : 0,
+      intRatio: nums.length ? nums.filter(n => Number.isInteger(n)).length / nums.length : 0,
+      distinct: new Set(strs).size,
+      avgLen: strs.reduce((s, v) => s + v.length, 0) / strs.length,
+      median: nums.length ? nums.map(Math.abs).sort((a, b) => a - b)[Math.floor(nums.length / 2)] : null,
+      nums
+    };
+  }
+
+  /**
+   * Devine les colonnes manquantes à partir des valeurs.
+   * @param {object} map mapping déjà obtenu par les libellés (prioritaire)
+   */
+  function inferColumns(map, header, rows) {
+    if (!rows.length) return map;
+    const width = Math.max(header.length, ...rows.slice(0, 20).map(r => r.length));
+    const used = new Set(Object.values(map));
+    const profiles = [];
+    for (let i = 0; i < width; i++) {
+      if (used.has(i)) continue;
+      const p = profile(rows, i);
+      if (p) profiles.push(p);
+    }
+    const take = (field, pick) => {
+      if (map[field] != null) return;
+      const cands = profiles.filter(p => !used.has(p.idx));
+      const best = pick(cands);
+      if (best) { map[field] = best.idx; used.add(best.idx); }
+    };
+    const bestBy = (list, ok, score) => list.filter(ok).sort((a, b) => score(b) - score(a))[0];
+
+    // identifiants : très discriminants, on les prend en premier
+    take('isin',   c => bestBy(c, p => p.isinRatio > 0.6, p => p.isinRatio));
+    take('date',   c => bestBy(c, p => p.dateRatio > 0.7 && p.numRatio < 0.9, p => p.dateRatio));
+    if (map.date == null) take('date', c => bestBy(c, p => p.dateRatio > 0.7, p => p.dateRatio));
+    take('compte', c => bestBy(c, p => p.compteRatio > 0.6 && p.distinct <= 12, p => p.compteRatio));
+    take('type',   c => bestBy(c, p => p.typeRatio > 0.6 && p.distinct <= 15, p => p.typeRatio));
+
+    // libellé : la colonne texte la plus « bavarde »
+    take('libelle', c => bestBy(c, p => p.numRatio < 0.3 && p.dateRatio < 0.3 && p.avgLen >= 3, p => p.avgLen + p.distinct / 100));
+
+    // colonnes numériques restantes
+    const numeric = profiles.filter(p => !used.has(p.idx) && p.numRatio > 0.8);
+
+    // montant : colonne avec des valeurs signées, ou la plus grande en valeur absolue
+    take('montant', () => bestBy(numeric, p => p.negRatio > 0.15, p => p.median || 0));
+
+    // quantité : petits nombres, souvent entiers
+    take('qty', () => bestBy(numeric.filter(p => !used.has(p.idx)),
+      p => p.median != null && p.median > 0 && p.median < 10000,
+      p => p.intRatio - (p.median || 0) / 1e6));
+
+    // parmi les colonnes de prix restantes, la plus petite est le PRU
+    // (prix d'achat) et la plus grande la valorisation, sauf incohérence.
+    const rest = numeric.filter(p => !used.has(p.idx)).sort((a, b) => (a.median || 0) - (b.median || 0));
+    if (map.pru == null && rest.length) { map.pru = rest[0].idx; used.add(rest[0].idx); }
+    if (map.price == null && rest.length > 1) { map.price = rest[1].idx; used.add(rest[1].idx); }
+
+    // ticker en dernier : critère le plus laxiste, il capterait sinon d'autres colonnes
+    take('ticker', c => bestBy(c, p => p.tickerRatio > 0.7 && p.avgLen <= 8, p => p.tickerRatio));
+
+    // cohérence : si quantité × PRU ≈ montant, le mapping tient la route ;
+    // sinon PRU et montant ont probablement été inversés.
+    if (map.qty != null && map.pru != null && map.montant != null) {
+      const ok = rows.slice(0, 20).filter(r => {
+        const q = num(cell(r, map.qty)), p = num(cell(r, map.pru)), m = num(cell(r, map.montant));
+        return q && p && m && Math.abs(Math.abs(m) - q * p) / Math.abs(m) < 0.05;
+      }).length;
+      const swapped = rows.slice(0, 20).filter(r => {
+        const q = num(cell(r, map.qty)), p = num(cell(r, map.montant)), m = num(cell(r, map.pru));
+        return q && p && m && Math.abs(Math.abs(m) - q * p) / Math.abs(m) < 0.05;
+      }).length;
+      if (swapped > ok) { const t = map.pru; map.pru = map.montant; map.montant = t; }
+    }
+    return map;
+  }
+
+  /**
+   * La première ligne est-elle un en-tête, ou déjà une ligne de données ?
+   * Un intitulé de colonne ne contient ni date ni montant : la présence de
+   * l'un ou de l'autre trahit une ligne de données (qui serait sinon avalée
+   * comme en-tête, et donc perdue à l'import).
+   */
+  function looksLikeHeader(header) {
+    const cells = header.map(h => String(h ?? '').trim()).filter(Boolean);
+    if (!cells.length) return false;
+    if (cells.some(looksLikeDate)) return false;
+    if (cells.filter(c => num(c) != null).length >= 2) return false;
+    const texty = cells.filter(c => num(c) == null).length;
+    return texty >= Math.max(1, cells.length * 0.5);
+  }
+
   function detectKind(map, header) {
     const hasPos = map.qty != null && (map.pru != null || map.price != null || map.isin != null);
     const hasOps = map.date != null && map.montant != null;
@@ -439,7 +576,15 @@
     }
     if (!header.length) throw new Error('Fichier vide ou illisible');
 
-    const map = mapColumns(header);
+    // Fichier sans ligne d'en-tête : la première ligne est de la donnée, on la
+    // réintègre et on travaille uniquement par reconnaissance du contenu.
+    if (!looksLikeHeader(header)) {
+      rows = [header, ...rows];
+      header = header.map(() => '');
+    }
+
+    // 1) libellés de colonnes connus, 2) déduction par le contenu pour le reste
+    const map = inferColumns(mapColumns(header), header, rows);
     const kind = detectKind(map, header);
     const operations = [], positions = [];
     let skipped = 0;
@@ -752,6 +897,6 @@
   glob.PatrimoineCore = {
     parseFile, parseCsv, parseXlsx, mapColumns, detectKind,
     value, mergeOperations, mergePositions, classOf, quoteRequest, keyOf,
-    deriveFromOperations, num, date, slug, round2, iso, frDate, EMPTY
+    deriveFromOperations, inferColumns, num, date, slug, round2, iso, frDate, EMPTY
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
