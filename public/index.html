@@ -10,9 +10,9 @@
 <!-- ?v= : numéro à incrémenter à chaque déploiement qui touche ces fichiers.
      Sans lui, un navigateur ayant déjà mis un module en cache continue de servir
      l'ancienne version jusqu'à expiration, et l'app paraît « ne pas se mettre à jour ». -->
-<script src="/firebase-config.js?v=4"></script>
-<script src="/app-core.js?v=4"></script>
-<script type="module" src="/firebase-client.js?v=4"></script>
+<script src="/firebase-config.js?v=5"></script>
+<script src="/app-core.js?v=5"></script>
+<script type="module" src="/firebase-client.js?v=5"></script>
 <style>
 :root{
   --blue:#0052ff; --blue-d:#003ecc; --blue-l:#4d84ff;
@@ -27,7 +27,10 @@ body{margin:0;background:var(--bg);font-family:Inter,-apple-system,system-ui,"Se
 a{color:var(--blue);text-decoration:none}
 a:hover{color:var(--blue-d)}
 
-.shell{display:flex;min-height:100vh;align-items:stretch;min-width:1280px}
+/* Pas de min-width : la maquette d'origine imposait 1280px, ce qui coupait
+   le contenu à droite dès que la fenêtre était plus étroite. */
+.shell{display:flex;min-height:100vh;align-items:stretch;width:100%}
+html,body{max-width:100%;overflow-x:hidden}
 
 /* ---------- sidebar ---------- */
 .side{width:244px;flex:none;background:var(--white);border-right:1px solid var(--line);padding:24px 16px;display:flex;flex-direction:column;gap:28px;position:sticky;top:0;height:100vh}
@@ -75,14 +78,19 @@ main{flex:1;min-width:0;display:flex;flex-direction:column}
 .btn-s{background:var(--line2);color:var(--ink)}
 
 /* ---------- layout ---------- */
-.screen{padding:28px 32px 64px;display:flex;flex-direction:column;gap:20px;max-width:1360px;width:100%}
+.screen{padding:28px 32px 64px;display:flex;flex-direction:column;gap:20px;max-width:1360px;width:100%;min-width:0}
+main{min-width:0}                       /* sans ça, un enfant large empêche le flex de rétrécir */
+.grid{min-width:0}
+.card{min-width:0}
 .card{background:var(--white);border:1px solid var(--line);border-radius:24px;padding:24px}
 .card.lg{padding:28px 32px}
 .card-t{font-size:18px;font-weight:600;letter-spacing:-.2px}
 .card-s{font-size:13px;color:var(--mut2);margin-top:4px}
-.kpi-l{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mut2)}
-.kpi-v{font-family:var(--mono);font-weight:500;font-size:26px;letter-spacing:-.6px;margin-top:10px;font-variant-numeric:tabular-nums}
-.kpi-v.xl{font-size:34px;letter-spacing:-1px}
+.kpi-l{font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--mut2);min-height:2.4em}
+/* les montants ne doivent jamais passer à la ligne (le « € » se retrouvait seul
+   en dessous) : ils rétrécissent avec la largeur disponible à la place */
+.kpi-v{font-family:var(--mono);font-weight:500;font-size:clamp(17px,1.55vw,26px);letter-spacing:-.6px;margin-top:10px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.kpi-v.xl{font-size:clamp(21px,2.1vw,34px);letter-spacing:-1px}
 .kpi-n{font-size:13px;color:var(--mut);margin-top:6px}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .pos{color:var(--green)}
@@ -162,6 +170,50 @@ main{flex:1;min-width:0;display:flex;flex-direction:column}
 .divider::before,.divider::after{content:"";flex:1;height:1px;background:var(--line)}
 .btn-google{height:44px;border-radius:100px;background:var(--white);border:1px solid var(--line);color:var(--ink);font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:10px;cursor:pointer;width:100%;font-family:inherit}
 .btn-google:hover{background:var(--bg)}
+
+/* ============================================================
+   Adaptation à la largeur de fenêtre
+   Les grilles sont définies en style inline (héritage de la maquette) :
+   ces règles les surchargent aux tailles où elles déborderaient.
+   Les tableaux à colonnes fixes défilent horizontalement dans leur carte
+   plutôt que d'être coupés par le bord de la page.
+   ============================================================ */
+.scroll-x{overflow-x:auto}
+.thead,.tr{min-width:max-content}
+
+@media (max-width:1480px){
+  .screen .grid[style*="1.4fr 1fr 1fr 1fr 1fr"],
+  .screen .grid[style*="repeat(5,1fr)"]{grid-template-columns:repeat(3,1fr)!important}
+}
+@media (max-width:1180px){
+  .top{padding:16px 20px}
+  .screen{padding:20px 20px 56px}
+  .card.lg{padding:22px 20px}
+  .screen .grid[style*="1.4fr 1fr 1fr 1fr 1fr"],
+  .screen .grid[style*="repeat(5,1fr)"],
+  .screen .grid[style*="repeat(4,1fr)"],
+  .screen .grid[style*="repeat(3,1fr)"],
+  .screen .grid[style*="1.5fr 1fr"],
+  .screen .grid[style*="1.7fr 1fr"],
+  .screen .grid[style*="1fr 1.25fr"],
+  .screen .grid[style*="1.2fr 1fr 1fr"],
+  .screen .grid[style*="1.2fr 1fr 1fr"]{grid-template-columns:repeat(2,1fr)!important}
+  .screen .grid[style*="1fr 264px"]{grid-template-columns:1fr!important}
+  .screen .grid[style*="260px 1fr"]{grid-template-columns:1fr!important;justify-items:center}
+}
+@media (max-width:900px){
+  .side{width:200px;padding:20px 12px}
+  /* [style] pour égaler la spécificité des règles ci-dessus, sinon elles gagnent */
+  .screen .grid[style],.screen .grid{grid-template-columns:1fr!important}
+  .top h1{font-size:19px}
+  /* en-têtes de carte : titre au-dessus du sélecteur au lieu de côte à côte */
+  .card .row-between{flex-wrap:wrap;gap:12px}
+  .seg{flex-wrap:wrap}
+}
+@media (max-width:720px){
+  /* en dessous, l'app mobile dédiée (/m/) est plus adaptée */
+  .side{display:none}
+}
 </style>
 </head>
 <body>
@@ -590,8 +642,11 @@ function chartCard(){
 
   const hi = state.hov;
   const zones = pts.map((p,i) => {
+    // zone centrée sur le point, bornée à [0,100] : la dernière débordait de la
+    // carte (centrée sur 100 %, elle dépassait de sa demi-largeur)
     const w = 100 / pts.length;
-    return `<div data-hover="hov" data-hval="${i}" style="position:absolute;top:0;bottom:0;left:${Math.max(0, c.x(i)/720*100 - w/2)}%;width:${w}%"></div>`;
+    const left = Math.min(100 - w, Math.max(0, c.x(i) / 720 * 100 - w / 2));
+    return `<div data-hover="hov" data-hval="${i}" style="position:absolute;top:0;bottom:0;left:${left}%;width:${w}%"></div>`;
   }).join('');
 
   let tip = '';
@@ -860,10 +915,12 @@ function allocationCard(){
           <div style="font-size:13px;color:var(--mut);line-height:1.55;margin-top:3px">${esc(meta.body)}</div>
         </div>
       </div>
-      <div style="display:grid;grid-template-columns:${cols};padding:20px 0 10px;border-bottom:1px solid var(--line)">
-        <span class="th">Sous-jacent</span><span class="th r">En direct</span><span class="th r">Via ETF / UC</span><span class="th r">Exposition réelle</span><span class="th r">% portef.</span>
+      <div class="scroll-x">
+        <div class="thead" style="display:grid;grid-template-columns:${cols};padding:20px 0 10px;border-bottom:1px solid var(--line)">
+          <span class="th">Sous-jacent</span><span class="th r">En direct</span><span class="th r">Via ETF / UC</span><span class="th r">Exposition réelle</span><span class="th r">% portef.</span>
+        </div>
+        ${list}
       </div>
-      ${list}
       <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:20px">
         <div style="border:1px solid var(--line);border-radius:16px;padding:18px 20px">
           <div style="font-size:13px;color:var(--mut2)">Chevauchement entre supports</div>
@@ -1019,10 +1076,12 @@ function recentOpsAndSide(){
         <div class="card-t">Dernières opérations</div>
         <span class="link" style="font-size:14px" data-act="view" data-arg="ops">Tout voir →</span>
       </div>
-      <div style="display:grid;grid-template-columns:${cols};padding-bottom:10px;border-bottom:1px solid var(--line2)">
-        <span class="th">Date</span><span class="th">Libellé</span><span class="th">Compte</span><span class="th r">Montant</span>
+      <div class="scroll-x">
+        <div class="thead" style="display:grid;grid-template-columns:${cols};padding-bottom:10px;border-bottom:1px solid var(--line2)">
+          <span class="th">Date</span><span class="th">Libellé</span><span class="th">Compte</span><span class="th r">Montant</span>
+        </div>
+        ${rows}
       </div>
-      ${rows}
     </div>
     <div style="display:flex;flex-direction:column;gap:16px">${projection}${fiscalite}</div>
   </div>`;
@@ -1207,10 +1266,10 @@ function viewPea(){
         <div class="card-t">Lignes du portefeuille</div>
         <span style="font-size:13px;color:var(--mut2)">Trié par plus-value décroissante</span>
       </div>
-      <div class="thead" style="display:grid;grid-template-columns:${cols}">
+      <div class="scroll-x"><div class="thead" style="display:grid;grid-template-columns:${cols}">
         <span class="th">Ligne</span><span class="th r">Qté</span><span class="th r">PRU</span><span class="th r">Cours</span><span class="th r">Valeur</span><span class="th r">± €</span><span class="th r">± %</span>
       </div>
-      ${rows}
+      ${rows}</div>
     </div>
 
     <div class="grid" style="grid-template-columns:1fr 1fr 1fr">
@@ -1304,10 +1363,10 @@ function viewAv(){
     </div>
     <div class="card">
       <div class="card-t" style="margin-bottom:16px">Détail des supports</div>
-      <div class="thead" style="display:grid;grid-template-columns:${cols}">
+      <div class="scroll-x"><div class="thead" style="display:grid;grid-template-columns:${cols}">
         <span class="th">Support</span><span class="th">ISIN</span><span class="th r">Parts</span><span class="th r">Cotation</span><span class="th r">PRM</span><span class="th r">Montant</span><span class="th r">± €</span>
       </div>
-      ${rows}
+      ${rows}</div>
     </div>
   </div>`;
 }
@@ -1398,10 +1457,10 @@ function viewOps(){
       ${segControl([{value:'Tous',label:'Tous'}, ...comptes.map(c => ({value:c,label:c}))], state.filt, 'filt')}
     </div>
     <div class="card">
-      <div class="thead" style="display:grid;grid-template-columns:${cols}">
+      <div class="scroll-x"><div class="thead" style="display:grid;grid-template-columns:${cols}">
         <span class="th">Date</span><span class="th">Compte</span><span class="th">Type</span><span class="th">Libellé</span><span class="th">Ticker</span><span class="th r">Montant</span>
       </div>
-      ${rows}
+      ${rows}</div>
     </div>
   </div>`;
 }
@@ -1448,6 +1507,7 @@ function manualForm(){
   const compteVal = ed?.compte || state.formCompte || 'PEA';
   const solde = isSoldeCompte(compteVal);
   const today = new Date().toISOString().slice(0,10);
+  const soldeActuel = snap?.comptes?.[compteVal]?.balance ?? snap?.comptes?.[compteVal]?.value ?? null;
 
   const enveloppeChips = comptes.map(c =>
     `<div class="seg-item${c === compteVal ? ' on' : ''}" style="padding:8px 14px;font-size:13px" data-act="formCompte" data-arg="${esc(c)}">${esc(c)}</div>`
@@ -1465,7 +1525,9 @@ function manualForm(){
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="field">
           <label for="pSolde">Montant sur le livret *</label>
-          <input id="pSolde" type="text" inputmode="decimal" placeholder="6 681,68" value="${ed ? String(ed.value ?? '').replace('.', ',') : ''}" required>
+          <!-- pré-rempli avec le solde actuel : on corrige au lieu de tout retaper -->
+          <input id="pSolde" type="text" inputmode="decimal" placeholder="ex. 6 681,68"
+                 value="${soldeActuel != null ? String(soldeActuel).replace('.', ',') : ''}" required>
         </div>
         <div class="field">
           <label for="pTaux">Taux annuel (%)</label>
@@ -1676,21 +1738,23 @@ function wirePositionForm(){
     const num = window.PatrimoineCore.num;
     const ed = state.editing;
     const compte = ed?.compte || state.formCompte || 'PEA';
+    const solde = isSoldeCompte(compte);
+
+    // IMPORTANT : lire les champs AVANT tout set(), qui redessine la page et
+    // remplace les <input> — sinon on relit des champs vides et la saisie de
+    // l'utilisateur est perdue (« Montant invalide » sur un formulaire rempli).
+    const saisie = solde
+      ? { montant: num(v('pSolde')), taux: num(v('pTaux')) }
+      : { nameOrIsin: v('pName'), qty: num(v('pQty')), pru: num(v('pPru')), date: v('pDate') };
 
     set({ importing:true, report:null });
     try {
-      if (isSoldeCompte(compte)) {
-        // livret / fonds euro : on enregistre un solde
-        const montant = num(v('pSolde'));
-        if (montant == null) throw new Error('Montant invalide.');
-        await window.PatrimoineData.updateBalance(compte, montant, num(v('pTaux')) ?? undefined);
+      if (solde) {
+        if (saisie.montant == null) throw new Error('Montant invalide.');
+        await window.PatrimoineData.updateBalance(compte, saisie.montant, saisie.taux ?? undefined);
         state.report = { report:{ file:compte, kind:'positions', added:0, updated:1, removed:0, skipped:0 } };
       } else {
-        const res = await window.PatrimoineData.savePosition({
-          nameOrIsin: v('pName'), compte,
-          qty: num(v('pQty')), pru: num(v('pPru')), date: v('pDate'),
-          replaces: ed?.name
-        });
+        const res = await window.PatrimoineData.savePosition({ ...saisie, compte, replaces: ed?.name });
         state.report = { report:{ file:res.name, kind:'positions', added:res.created ? 1 : 0, updated:res.created ? 0 : 1, removed:0, skipped:0 } };
       }
       state.editing = null;
