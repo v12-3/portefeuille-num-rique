@@ -10,9 +10,9 @@
 <!-- ?v= : numéro à incrémenter à chaque déploiement qui touche ces fichiers.
      Sans lui, un navigateur ayant déjà mis un module en cache continue de servir
      l'ancienne version jusqu'à expiration, et l'app paraît « ne pas se mettre à jour ». -->
-<script src="/firebase-config.js?v=7"></script>
-<script src="/app-core.js?v=7"></script>
-<script type="module" src="/firebase-client.js?v=7"></script>
+<script src="/firebase-config.js?v=8"></script>
+<script src="/app-core.js?v=8"></script>
+<script type="module" src="/firebase-client.js?v=8"></script>
 <style>
 :root{
   --blue:#0052ff; --blue-d:#003ecc; --blue-l:#4d84ff;
@@ -1141,6 +1141,8 @@ function recentOpsAndSide(){
 
 /* projection : capitalisation mensuelle sur l'épargne moyenne observée */
 const settings = () => snap?.settings || { monthlyExpenses:null, goal:null };
+/** Liquidités explicitement fixées par l'utilisateur (vs déduites des opérations). */
+const rawCash = () => window.PatrimoineData?.portfolio?.cash || {};
 
 function monthsToTarget(rate, target = settings().goal){
   if (!target) return null;
@@ -1566,6 +1568,11 @@ const isSoldeCompte = c => /livret|ldds|lep|pel|cel|fonds euro|epargne|épargne|
 function manualForm(){
   const comptes = [...new Set(['PEA', 'Assurance Vie', 'Livret A', ...Object.keys(snap?.comptes || {})])];
   const lines = (snap?.lines || []);
+  // les liquidités n'apparaissaient nulle part : impossible de corriger une
+  // trésorerie déduite des opérations qu'on ne reconnaît pas
+  const cashRows = Object.entries(snap?.comptes || {})
+    .filter(([, c]) => c.cash > 0)
+    .map(([name, c]) => ({ compte:name, value:c.cash, derive: !(rawCash()[name] != null) }));
   const ed = state.editing;                                  // ligne en cours de modification
   const compteVal = ed?.compte || state.formCompte || 'PEA';
   const solde = isSoldeCompte(compteVal);
@@ -1632,10 +1639,10 @@ function manualForm(){
       </div>
     </form>
 
-    ${lines.length ? `
+    ${(lines.length || cashRows.length) ? `
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line2)">
-      <div class="th" style="font-size:12px;margin-bottom:8px">Mes lignes (${lines.length}) — clique pour modifier</div>
-      <div style="display:flex;flex-direction:column;gap:6px;max-height:230px;overflow:auto">
+      <div class="th" style="font-size:12px;margin-bottom:8px">Mes lignes (${lines.length + cashRows.length}) — clique pour modifier</div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto">
         ${lines.map((l, li) => `
           <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px">
             <div style="flex:1;min-width:0">
@@ -1645,6 +1652,16 @@ function manualForm(){
             <span class="mono" style="font-size:13px;flex:none">${eur(l.value)}</span>
             <span class="link" style="font-size:12px;cursor:pointer;flex:none" data-act="editPos" data-arg="${li}">Modifier</span>
             <span style="font-size:12px;font-weight:600;color:var(--red);cursor:pointer;flex:none" data-act="delPos" data-arg="${li}">Suppr.</span>
+          </div>`).join('')}
+        ${cashRows.map(c => `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600">Liquidités · ${esc(c.compte)}</div>
+              <div style="font-size:11px;color:var(--mut2)">${c.derive ? 'déduites de tes opérations (versements − achats)' : 'montant que tu as fixé'}</div>
+            </div>
+            <span class="mono" style="font-size:13px;flex:none">${eur(c.value)}</span>
+            <span class="link" style="font-size:12px;cursor:pointer;flex:none" data-act="editCash" data-arg="${esc(c.compte)}">Modifier</span>
+            <span style="font-size:12px;font-weight:600;color:var(--red);cursor:pointer;flex:none" data-act="delCash" data-arg="${esc(c.compte)}">Suppr.</span>
           </div>`).join('')}
       </div>
     </div>` : ''}`;
@@ -1885,6 +1902,20 @@ const ACTIONS = {
     try {
       await window.PatrimoineData.saveSettings({ monthlyExpenses: v.trim() === '' ? null : window.PatrimoineCore.num(v) });
     } catch (e) { alert(e.message); }
+  },
+  editCash: async compte => {
+    const cur = snap?.comptes?.[compte]?.cash ?? 0;
+    const v = prompt(`Liquidités sur ${compte} (en €)\n\nMontant actuel : ${eur(cur)}\nMets 0 pour les retirer du patrimoine.`, String(cur).replace('.', ','));
+    if (v === null) return;
+    try { await window.PatrimoineData.setCash(compte, window.PatrimoineCore.num(v)); state.report = null; }
+    catch (e) { state.report = { error:e.message }; }
+    render();
+  },
+  delCash: async compte => {
+    if (!confirm(`Retirer les liquidités de ${compte} du patrimoine ?\n\nElles sont remises à 0 €. Tes opérations, elles, ne sont pas touchées.`)) return;
+    try { await window.PatrimoineData.setCash(compte, 0); state.report = null; }
+    catch (e) { state.report = { error:e.message }; }
+    render();
   },
   editPos: arg => {
     // référence par index : un libellé contenant « | » cassait le découpage

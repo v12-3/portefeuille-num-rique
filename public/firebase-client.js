@@ -391,6 +391,25 @@ function countPositionOperations(name, compte) {
   }).length;
 }
 
+/**
+ * Fixe (ou remet à zéro) les liquidités d'une enveloppe.
+ * Les liquidités peuvent être déduites des opérations : une valeur explicite
+ * enregistrée ici prend le dessus sur le calcul, ce qui permet de corriger ou
+ * de supprimer une trésorerie qu'on ne reconnaît pas.
+ */
+async function setCash(compte, value) {
+  await ensureLoaded();
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) throw new Error('Montant de liquidités invalide.');
+  rawPortfolio.cash = rawPortfolio.cash || {};
+  rawPortfolio.cash[compte] = Core.round2(n);
+  await setDoc(mainRef(), rawPortfolio);
+  lastSnapshot = Core.value(rawPortfolio, new Map());
+  emit();
+  recompute(true).catch(() => {});
+  return { ok: true, snapshot: lastSnapshot };
+}
+
 /** Supprime une opération précise du journal. */
 async function removeOperation(op) {
   await ensureLoaded();
@@ -472,6 +491,7 @@ window.PatrimoineData = {
   },
   get settings() { return settings; },
   removePosition,
+  setCash,
   removeOperation,
   countPositionOperations,
   addOperation,
