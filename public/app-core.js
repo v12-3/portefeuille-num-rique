@@ -664,6 +664,24 @@
   /** Types qui déplacent réellement des espèces sur le compte. */
   const CASH_TYPES = new Set(['Versement', 'Ouverture', 'Retrait', 'Achat', 'Vente', 'Dividende']);
 
+  /** Sens de sortie de trésorerie par type d'opération. */
+  const CASH_OUT = new Set(['Achat', 'Retrait']);
+
+  /**
+   * Montant signé selon le sens réel de l'opération, indépendamment de la
+   * convention du fichier importé.
+   *
+   * Beaucoup d'exports courtier écrivent tous les montants en positif et
+   * indiquent le sens dans une colonne séparée (« Achat » / « Vente »). Avec le
+   * signe brut, un achat *ajoutait* alors des espèces au lieu d'en retirer,
+   * pendant que le titre acheté était compté en plus : le patrimoine doublait
+   * et une trésorerie fantôme apparaissait.
+   */
+  function signedCash(type, montant) {
+    const abs = Math.abs(montant);
+    return CASH_OUT.has(type) ? -abs : abs;
+  }
+
   function deriveFromOperations(portfolio) {
     // Chronologique : le journal est stocké du plus récent au plus ancien, or
     // une vente traitée avant son achat faussait la quantité et le PRU.
@@ -682,6 +700,7 @@
 
     const held = new Map();      // compte::clé → { compte, name, ticker, isin, qty, cost }
     const flow = {};             // compte → solde de trésorerie déduit des flux
+    const detail = {};           // compte → décomposition des flux, pour l'affichage
 
     for (const o of ops) {
       const compte = o.compte || 'PEA';
@@ -691,7 +710,13 @@
       // « Solde »/« Valorisation » (photo du compte, fréquente dans les exports)
       // ou un type non reconnu ne sont pas des flux : les compter créait de
       // l'argent qui n'a jamais été versé.
-      if (CASH_TYPES.has(o.type)) flow[compte] = round2((flow[compte] || 0) + montant);
+      if (CASH_TYPES.has(o.type)) {
+        flow[compte] = round2((flow[compte] || 0) + signedCash(o.type, montant));
+        // détail conservé pour pouvoir expliquer le montant à l'écran
+        const dt = detail[compte] || (detail[compte] = { Versement:0, Ouverture:0, Achat:0, Vente:0, Dividende:0, Retrait:0, count:0 });
+        dt[o.type] = round2((dt[o.type] || 0) + Math.abs(montant));
+        dt.count++;
+      }
 
       if (o.type !== 'Achat' && o.type !== 'Vente') continue;
 
@@ -765,7 +790,7 @@
       if (portfolio.balances && portfolio.balances[compte] != null) continue;
       if (solde > 0.005) cash[compte] = solde;
     }
-    return { positions, cash };
+    return { positions, cash, cashDetail: detail };
   }
 
   function classOf(pos) {
@@ -780,8 +805,10 @@
   function flows(ops = []) {
     const ym = new Date().toISOString().slice(0, 7);
     const versements = ops.filter(o => o.type === 'Versement' || o.type === 'Ouverture');
-    const epargneMois = round2(versements.filter(o => o.date.slice(0, 7) === ym).reduce((s, o) => s + o.montant, 0));
-    const total = round2(versements.reduce((s, o) => s + o.montant, 0));
+    // valeurs absolues : un versement reste un versement quel que soit le signe
+    // utilisé par le fichier d'origine
+    const epargneMois = round2(versements.filter(o => o.date.slice(0, 7) === ym).reduce((s, o) => s + Math.abs(o.montant), 0));
+    const total = round2(versements.reduce((s, o) => s + Math.abs(o.montant), 0));
     const months = new Set(ops.map(o => o.date.slice(0, 7)));
     return {
       epargneMois, versementsTotal: total, moisSuivis: months.size,
@@ -795,9 +822,10 @@
       if (o.type !== 'Dividende') continue;
       const y = o.date.slice(0, 4), m = Number(o.date.slice(5, 7)) - 1;
       const y_ = byYear[y] || (byYear[y] = { months: Array(12).fill(0), lines: Array.from({ length: 12 }, () => []), total: 0 });
-      y_.months[m] = round2(y_.months[m] + o.montant);
-      y_.lines[m].push([o.libelle, o.montant]);
-      y_.total = round2(y_.total + o.montant);
+      const encaisse = Math.abs(o.montant);      // un dividende est toujours encaissé
+      y_.months[m] = round2(y_.months[m] + encaisse);
+      y_.lines[m].push([o.libelle, encaisse]);
+      y_.total = round2(y_.total + encaisse);
     }
     return byYear;
   }
@@ -889,6 +917,7 @@
         ...flows(portfolio.operations)
       },
       comptes, lines, allocation: allocation(comptes, lines),
+      cashDetail: derived.cashDetail,        // décomposition de la trésorerie déduite
       operations: portfolio.operations.map(o => ({ ...o, dateFr: frDate(o.date) })),
       dividends: dividends(portfolio.operations),
       imports: (portfolio.meta?.imports || []).slice(-8).reverse()

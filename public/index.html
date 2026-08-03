@@ -10,9 +10,9 @@
 <!-- ?v= : numéro à incrémenter à chaque déploiement qui touche ces fichiers.
      Sans lui, un navigateur ayant déjà mis un module en cache continue de servir
      l'ancienne version jusqu'à expiration, et l'app paraît « ne pas se mettre à jour ». -->
-<script src="/firebase-config.js?v=8"></script>
-<script src="/app-core.js?v=8"></script>
-<script type="module" src="/firebase-client.js?v=8"></script>
+<script src="/firebase-config.js?v=9"></script>
+<script src="/app-core.js?v=9"></script>
+<script type="module" src="/firebase-client.js?v=9"></script>
 <style>
 :root{
   --blue:#0052ff; --blue-d:#003ecc; --blue-l:#4d84ff;
@@ -1144,6 +1144,23 @@ const settings = () => snap?.settings || { monthlyExpenses:null, goal:null };
 /** Liquidités explicitement fixées par l'utilisateur (vs déduites des opérations). */
 const rawCash = () => window.PatrimoineData?.portfolio?.cash || {};
 
+/**
+ * Explique en clair d'où vient une trésorerie déduite, pour qu'un montant
+ * inattendu soit vérifiable au lieu d'être subi.
+ */
+function cashExplain(compteName){
+  const d = snap?.cashDetail?.[compteName];
+  if (!d) return 'déduites de tes opérations';
+  const parts = [];
+  const entrees = (d.Versement || 0) + (d.Ouverture || 0);
+  if (entrees) parts.push(`${eur0(entrees)} versés`);
+  if (d.Vente) parts.push(`${eur0(d.Vente)} de ventes`);
+  if (d.Dividende) parts.push(`${eur0(d.Dividende)} de dividendes`);
+  if (d.Achat) parts.push(`− ${eur0(d.Achat)} investis`);
+  if (d.Retrait) parts.push(`− ${eur0(d.Retrait)} retirés`);
+  return parts.length ? `${parts.join(' · ')} (${d.count} opérations)` : 'déduites de tes opérations';
+}
+
 function monthsToTarget(rate, target = settings().goal){
   if (!target) return null;
   const t = T();
@@ -1657,7 +1674,7 @@ function manualForm(){
           <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px">
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:600">Liquidités · ${esc(c.compte)}</div>
-              <div style="font-size:11px;color:var(--mut2)">${c.derive ? 'déduites de tes opérations (versements − achats)' : 'montant que tu as fixé'}</div>
+              <div style="font-size:11px;color:var(--mut2)">${c.derive ? cashExplain(c.compte) : 'montant que tu as fixé'}</div>
             </div>
             <span class="mono" style="font-size:13px;flex:none">${eur(c.value)}</span>
             <span class="link" style="font-size:12px;cursor:pointer;flex:none" data-act="editCash" data-arg="${esc(c.compte)}">Modifier</span>
