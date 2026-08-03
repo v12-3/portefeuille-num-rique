@@ -26,27 +26,45 @@ const NEAR_PRICE = 0.06;
 const TIMEOUT_MS = 6000;
 const SUFFIX = { PEA: '.PA' };
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type',
-  'Access-Control-Max-Age': '86400'
-};
+/*
+ * Origines autorisées à appeler ce Worker. Sans liste, n'importe quel site
+ * pourrait l'utiliser comme proxy gratuit vers Yahoo et consommer le quota.
+ * Ajoute ici tout nouveau domaine servant l'application.
+ */
+const ALLOWED_ORIGINS = [
+  'https://portefeuille-d10c5.web.app',
+  'https://portefeuille-d10c5.firebaseapp.com',
+  'http://localhost:4173',
+  'http://127.0.0.1:4173'
+];
+
+function corsFor(request) {
+  const origin = request.headers.get('Origin') || '';
+  const allowed = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
+  return {
+    'Access-Control-Allow-Origin': allowed,
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin'
+  };
+}
 
 export default {
   async fetch(request) {
+    const CORS = corsFor(request);
     if (request.method === 'OPTIONS') return new Response(null, { headers: CORS });
     if (request.method !== 'POST') {
-      return json({ error: 'POST attendu : corps = liste de positions à coter' }, 405);
+      return json({ error: 'POST attendu : corps = liste de positions à coter' }, 405, CORS);
     }
     let positions;
     try {
       positions = await request.json();
       if (!Array.isArray(positions)) throw new Error('corps invalide');
     } catch {
-      return json({ error: 'JSON invalide (attendu : tableau de positions)' }, 400);
+      return json({ error: 'JSON invalide (attendu : tableau de positions)' }, 400, CORS);
     }
-    if (positions.length > 200) return json({ error: 'trop de lignes (max 200)' }, 400);
+    if (positions.length > 200) return json({ error: 'trop de lignes (max 200)' }, 400, CORS);
 
     const memo = new Map();          // symbol → quote, sur la durée de la requête
     const out = {};
@@ -62,14 +80,14 @@ export default {
         out[key] = { symbol: null, price: null, error: e.message || 'erreur' };
       }
     }));
-    return json(out);
+    return json(out, 200, CORS);
   }
 };
 
-function json(body, status = 200) {
+function json(body, status = 200, cors = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...CORS }
+    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', ...cors }
   });
 }
 

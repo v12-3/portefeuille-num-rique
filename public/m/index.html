@@ -9,9 +9,9 @@
 <link rel="manifest" href="/m/manifest.webmanifest">
 <link rel="icon" href="/m/icon-192.png">
 <!-- ?v= : incrémenter à chaque déploiement touchant ces fichiers (cf. index.html). -->
-<script src="/firebase-config.js?v=6"></script>
-<script src="/app-core.js?v=6"></script>
-<script type="module" src="/firebase-client.js?v=6"></script>
+<script src="/firebase-config.js?v=7"></script>
+<script src="/app-core.js?v=7"></script>
+<script type="module" src="/firebase-client.js?v=7"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -193,6 +193,37 @@ const EXPO_META = {
 };
 
 const OPICON = { Achat:'↓', Vente:'↑', Versement:'+', Dividende:'€', Ouverture:'★', Retrait:'−' };
+
+/* Constantes réglementaires françaises (faits, pas des estimations) */
+const PLAFOND_PEA = 150000;
+const PLAFOND_LIVRET_A = 22950;
+
+/* Réglages personnels : aucune valeur inventée tant que l'utilisateur n'a rien
+   renseigné (les dépenses mensuelles étaient auparavant figées à 1 500 €). */
+const depensesMensuelles = () => snap?.settings?.monthlyExpenses || null;
+const matelas = valeur => {
+  const m = depensesMensuelles();
+  return m ? (valeur / m).toLocaleString('fr-FR', { maximumFractionDigits: 1 }) + ' mois' : 'à renseigner';
+};
+
+/** Ancienneté d'une enveloppe et part du délai fiscal écoulée, depuis sa première opération. */
+function premiereOp(compteName){
+  const ops = (snap?.operations || []).filter(o => o.compte === compteName);
+  if (!ops.length) return null;
+  const d = new Date(ops[ops.length - 1].date);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+function anciennete(compteName){
+  const d = premiereOp(compteName);
+  if (!d) return '—';
+  const mois = Math.max(0, Math.round((Date.now() - d) / (30.44 * 86400000)));
+  return mois >= 24 ? `${Math.floor(mois / 12)} ans` : `${mois} mois`;
+}
+function anciennetePct(compteName, years){
+  const d = premiereOp(compteName);
+  if (!d) return 0;
+  return Math.max(0, Math.min(100, (Date.now() - d) / (365.25 * 86400000) / years * 100));
+}
 
 /* ============================================================
    Formatage
@@ -401,7 +432,7 @@ function screenAccueil(){
 
   const la = compte('Livret A');
   const part = t.patrimoine ? la.value / t.patrimoine * 100 : 0;
-  const versable = Math.max(0, 22950 - la.value);
+  const versable = Math.max(0, PLAFOND_LIVRET_A - la.value);
 
   return `<div class="screen">
     <div class="card">
@@ -458,7 +489,7 @@ function screenAccueil(){
     <div class="dark">
       <div class="lbl" style="color:var(--mut3)">À surveiller</div>
       <div style="font-size:17px;font-weight:400;letter-spacing:-.3px;margin-top:8px;line-height:1.35">${pctS(part)} de ton épargne dort sur un livret à ${la.taux ? pctS(la.taux) : '—'}</div>
-      <div style="font-size:13px;color:var(--mut3);line-height:1.55;margin-top:10px">Ton matelas de précaution est atteint (${(la.value / 1500).toLocaleString('fr-FR',{maximumFractionDigits:1})} mois). Au-delà, l'excédent perd du pouvoir d'achat dès que l'inflation dépasse le taux du livret.</div>
+      <div style="font-size:13px;color:var(--mut3);line-height:1.55;margin-top:10px">${depensesMensuelles() ? `Ton épargne de précaution couvre ${matelas(la.value)}. ` : ''}Au-delà de quelques mois de dépenses, l'excédent perd du pouvoir d'achat dès que l'inflation dépasse le taux du livret.</div>
       <div class="bar" style="height:34px;margin-top:16px">
         ${comptes().map(n => {
           const e = compte(n), col = e.garanti ? '#3f4652' : (n === 'PEA' ? '#0052ff' : '#05b169');
@@ -493,17 +524,17 @@ function modeEnveloppes(){
 
   const stats = garanti
     ? [['Capital garanti', mEur(e.value), 0], ['Intérêts estimés', e.interets ? mSEur(e.interets) : '—', 1],
-       ['Taux en vigueur', e.taux ? pctS(e.taux) : '—', 0], ['Matelas de sécurité', (e.value/1500).toLocaleString('fr-FR',{maximumFractionDigits:1}) + ' mois', 0]]
+       ['Taux en vigueur', e.taux ? pctS(e.taux) : '—', 0], ['Matelas de sécurité', matelas(e.value), 0]]
     : [['Mise', mEur(e.mise), 0],
        ['Dividendes ' + new Date().getFullYear(), mSEur(divFor(name)), 1],
        ['Meilleure ligne', e.lines[0] ? `${e.lines[0].name.slice(0,18)} ${sPct(e.lines[0].pct)}` : '—', 1],
        ['Moins bonne', e.lines.length > 1 ? `${e.lines[e.lines.length-1].name.slice(0,18)} ${sPct(e.lines[e.lines.length-1].pct)}` : '—', e.lines.length > 1 && e.lines[e.lines.length-1].pct < 0 ? -1 : 1]];
 
   const gauge = garanti
-    ? { label:'Plafond réglementaire', value:`${Math.round(e.value).toLocaleString('fr-FR')} / 22 950 €`, pct: e.value/22950*100 }
+    ? { label:'Plafond réglementaire', value:`${Math.round(e.value).toLocaleString('fr-FR')} / ${PLAFOND_LIVRET_A.toLocaleString('fr-FR')} €`, pct: e.value/PLAFOND_LIVRET_A*100 }
     : (name === 'PEA'
-        ? { label:'Plafond de versement', value:`${Math.round(e.mise).toLocaleString('fr-FR')} / 150 000 €`, pct: e.mise/150000*100 }
-        : { label:'Antériorité fiscale', value:'5 mois / 8 ans', pct:5.2 });
+        ? { label:'Plafond de versement', value:`${Math.round(e.mise).toLocaleString('fr-FR')} / ${PLAFOND_PEA.toLocaleString('fr-FR')} €`, pct: e.mise/PLAFOND_PEA*100 }
+        : { label:'Antériorité fiscale', value:`${anciennete(name)} / 8 ans`, pct: anciennetePct(name, 8) });
 
   const lines = e.lines.map(l => `
     <div class="list-row">
@@ -559,7 +590,7 @@ function modeEnveloppes(){
       <div style="display:flex;flex-direction:column;margin-top:8px">
         ${garanti
           ? `<div class="list-row"><div class="ava sm">%</div><div class="grow"><div style="font-size:14px;font-weight:500">Intérêts par quinzaine</div><div style="font-size:12px;color:var(--mut2)">Versés au 31/12</div></div><div class="mono pos" style="font-size:14px;font-weight:500">${e.interets ? mSEur(e.interets) : '—'}</div></div>
-             <div class="list-row"><div class="ava sm">↑</div><div class="grow"><div style="font-size:14px;font-weight:500">Encore versable</div><div style="font-size:12px;color:var(--mut2)">Avant plafond</div></div><div class="mono" style="font-size:14px;font-weight:500">${mEur0(Math.max(0, 22950 - e.value))}</div></div>`
+             <div class="list-row"><div class="ava sm">↑</div><div class="grow"><div style="font-size:14px;font-weight:500">Encore versable</div><div style="font-size:12px;color:var(--mut2)">Avant plafond</div></div><div class="mono" style="font-size:14px;font-weight:500">${mEur0(Math.max(0, PLAFOND_LIVRET_A - e.value))}</div></div>`
           : (lines + cash) || '<div class="empty">Aucune ligne.</div>'}
       </div>
     </div>`;

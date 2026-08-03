@@ -661,6 +661,9 @@
    *
    * @returns {{positions: Array, cash: Object}}
    */
+  /** Types qui déplacent réellement des espèces sur le compte. */
+  const CASH_TYPES = new Set(['Versement', 'Ouverture', 'Retrait', 'Achat', 'Vente', 'Dividende']);
+
   function deriveFromOperations(portfolio) {
     // Chronologique : le journal est stocké du plus récent au plus ancien, or
     // une vente traitée avant son achat faussait la quantité et le PRU.
@@ -683,7 +686,12 @@
     for (const o of ops) {
       const compte = o.compte || 'PEA';
       const montant = Number(o.montant) || 0;
-      flow[compte] = round2((flow[compte] || 0) + montant);
+
+      // Seuls les vrais mouvements d'espèces alimentent la trésorerie. Une ligne
+      // « Solde »/« Valorisation » (photo du compte, fréquente dans les exports)
+      // ou un type non reconnu ne sont pas des flux : les compter créait de
+      // l'argent qui n'a jamais été versé.
+      if (CASH_TYPES.has(o.type)) flow[compte] = round2((flow[compte] || 0) + montant);
 
       if (o.type !== 'Achat' && o.type !== 'Vente') continue;
 

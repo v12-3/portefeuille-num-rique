@@ -91,28 +91,47 @@ window.PatrimoineAuth = {
    Données — Firestore (brut) + valorisation client + Worker (cotations)
    ============================================================ */
 let uid = null;
-let unsubPortfolio = null, unsubHistory = null;
+let unsubPortfolio = null, unsubHistory = null, unsubSettings = null;
 let rawPortfolio = null, history = [], lastSnapshot = null;
 let refreshing = false;
 const dataListeners = new Set();
 
+/**
+ * Réglages personnels. Aucune valeur par défaut inventée : tant que
+ * l'utilisateur n'a rien saisi, les écrans qui en dépendent le disent au lieu
+ * d'afficher un chiffre sorti de nulle part (dépenses mensuelles, objectif).
+ */
+let settings = { monthlyExpenses: null, goal: null };
+
 const mainRef = () => doc(db, 'users', uid, 'portfolio', 'main');
+const settingsRef = () => doc(db, 'users', uid, 'portfolio', 'settings');
 const historyCol = () => collection(db, 'users', uid, 'history');
 
 function emit() {
-  const payload = lastSnapshot ? { ...lastSnapshot, history } : null;
+  const payload = lastSnapshot ? { ...lastSnapshot, history, settings } : null;
   dataListeners.forEach(cb => cb(payload));
 }
 
 function stopListening() {
-  unsubPortfolio?.(); unsubHistory?.();
-  unsubPortfolio = unsubHistory = null;
+  unsubPortfolio?.(); unsubHistory?.(); unsubSettings?.();
+  unsubPortfolio = unsubHistory = unsubSettings = null;
   rawPortfolio = null; history = []; lastSnapshot = null; uid = null;
+  settings = { monthlyExpenses: null, goal: null };
 }
 
 function startListening(user) {
   stopListening();
   uid = user.uid;
+
+  unsubSettings = onSnapshot(
+    settingsRef(),
+    s => {
+      const d = s.exists() ? s.data() : {};
+      settings = { monthlyExpenses: d.monthlyExpenses ?? null, goal: d.goal ?? null };
+      if (lastSnapshot) emit();
+    },
+    err => console.error('[firestore] settings:', err.message)
+  );
 
   unsubHistory = onSnapshot(
     query(historyCol(), orderBy('date')),
@@ -434,6 +453,24 @@ window.PatrimoineData = {
   updateBalance,
   pinSymbol,
   savePosition,
+  /** Réglages personnels (dépenses mensuelles, objectif d'épargne). */
+  async saveSettings(patch) {
+    await ensureLoaded();
+    const clean = {};
+    for (const k of ['monthlyExpenses', 'goal']) {
+      if (patch[k] === null) clean[k] = null;
+      else if (patch[k] !== undefined) {
+        const n = Number(patch[k]);
+        if (!Number.isFinite(n) || n < 0) throw new Error('Valeur invalide.');
+        clean[k] = n;
+      }
+    }
+    settings = { ...settings, ...clean };
+    await setDoc(settingsRef(), settings, { merge: true });
+    emit();
+    return settings;
+  },
+  get settings() { return settings; },
   removePosition,
   removeOperation,
   countPositionOperations,
