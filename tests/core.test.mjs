@@ -193,3 +193,26 @@ test('sans colonne libellé, la ligne prend le nom du ticker', async () => {
   assert.equal(v.comptes.CTO.value, 2000);
   assert.equal(v.comptes.CTO.cash, 1000);
 });
+
+test('cours en devise étrangère convertis en euros (dollars, pence)', () => {
+  const usd = C.toEur({ price: 147.99, previousClose: 145.89, currency: 'USD' }, { USD: 1.1412 });
+  assert.equal(usd.currency, 'EUR');
+  assert.equal(usd.price, 129.6793);
+  assert.equal(usd.fx.from, 'USD');
+  const gbp = C.toEur({ price: 8500, currency: 'GBp' }, { GBP: 0.85 });
+  assert.equal(gbp.price, 100);
+  const eur = { price: 168.2, currency: 'EUR' };
+  assert.equal(C.toEur(eur, {}), eur);
+  // sans taux : pas de montant faux, la cotation est écartée
+  assert.equal(C.toEur({ price: 10, currency: 'CHF' }, {}).price, null);
+  assert.deepEqual(C.currenciesToConvert([{ price: 1, currency: 'GBp' }, { price: 1, currency: 'EUR' }, { price: 1, currency: 'USD' }]), ['GBP', 'USD']);
+});
+
+test('lignes cotées : nom seul envoyé, fonds euro et lignes manuelles exclus', () => {
+  const req = C.quoteRequest([
+    { compte:'PEA', name:'Air Liquide', qty:2 },
+    { compte:'Assurance Vie', name:'Fonds euro Nouvelle Génération', qty:1 },
+    { compte:'PEA', name:'Ligne manuelle', manual:true, qty:1 }
+  ]);
+  assert.deepEqual(req.map(r => r.key), ['Air Liquide']);
+});

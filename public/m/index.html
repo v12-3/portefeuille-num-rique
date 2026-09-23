@@ -9,10 +9,10 @@
 <link rel="manifest" href="/m/manifest.webmanifest">
 <link rel="icon" href="/m/icon-192.png">
 <!-- ?v= : incrémenter à chaque déploiement touchant ces fichiers (cf. index.html). -->
-<script src="/firebase-config.js?v=10"></script>
-<script src="/app-core.js?v=10"></script>
-<script src="/ui-kit.js?v=10"></script>
-<script type="module" src="/firebase-client.js?v=10"></script>
+<script src="/firebase-config.js?v=11"></script>
+<script src="/app-core.js?v=11"></script>
+<script src="/ui-kit.js?v=11"></script>
+<script type="module" src="/firebase-client.js?v=11"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -509,7 +509,7 @@ function modeEnveloppes(){
       <div class="ava sm">${esc(abbr(l.name))}</div>
       <div class="grow">
         <div class="ell" style="font-size:14px;font-weight:500">${esc(l.name)}</div>
-        <div class="ell" style="font-size:12px;color:var(--mut2)">${esc([l.symbol || l.ticker, l.qty != null ? (l.qty.toLocaleString('fr-FR', { maximumFractionDigits:4 }) + ' × ' + eur(l.pru)) : '', l.manual ? 'non coté' : (l.live ? '' : 'cours différé')].filter(Boolean).join(' · '))}</div>
+        <div class="ell" style="font-size:12px;color:var(--mut2)">${esc([l.symbol || l.ticker, l.qty != null ? (l.qty.toLocaleString('fr-FR', { maximumFractionDigits:4 }) + ' × ' + eur(l.pru)) : '', l.manual ? 'non coté' : (l.live ? '' : 'cours différé'), l.fx ? `converti depuis ${l.fx.from}` : ''].filter(Boolean).join(' · '))}</div>
       </div>
       <div style="text-align:right;flex:none">
         <div class="mono" style="font-size:14px;font-weight:500">${mEur(l.value)}</div>

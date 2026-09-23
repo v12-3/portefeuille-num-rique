@@ -12,10 +12,10 @@
      l'ancienne version jusqu'à expiration, et l'app paraît « ne pas se mettre à jour ». -->
 <meta name="theme-color" content="#ffffff">
 <link rel="icon" href="/m/icon-192.png">
-<script src="/firebase-config.js?v=10"></script>
-<script src="/app-core.js?v=10"></script>
-<script src="/ui-kit.js?v=10"></script>
-<script type="module" src="/firebase-client.js?v=10"></script>
+<script src="/firebase-config.js?v=11"></script>
+<script src="/app-core.js?v=11"></script>
+<script src="/ui-kit.js?v=11"></script>
+<script type="module" src="/firebase-client.js?v=11"></script>
 <style>
 :root{
   --blue:#0052ff; --blue-d:#003ecc; --blue-l:#4d84ff;
@@ -1239,7 +1239,7 @@ function viewTitres(name){
     <div class="tr" style="display:grid;grid-template-columns:${cols};padding:14px 0;align-items:center">
       <div style="display:flex;align-items:center;gap:12px;min-width:0">
         <div class="avatar" style="width:32px;height:32px;font-size:11px;color:var(--ink);flex:none">${esc(monoOf(l.name))}</div>
-        <div style="min-width:0"><div style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.name)}</div><div style="font-size:12px;color:var(--mut2)">${esc([l.symbol || l.ticker || l.isin, l.manual ? 'non coté' : (l.live ? 'cotation en direct' : 'dernier cours connu')].filter(Boolean).join(' · '))}</div></div>
+        <div style="min-width:0"><div style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.name)}</div><div style="font-size:12px;color:var(--mut2)">${esc([l.symbol || l.ticker || l.isin, l.manual ? 'non coté' : (l.live ? 'cotation en direct' : 'dernier cours connu'), l.fx ? `converti depuis ${l.fx.from}` : ''].filter(Boolean).join(' · '))}</div></div>
       </div>
       <span class="mono" style="font-size:14px;text-align:right">${(l.qty ?? 0).toLocaleString('fr-FR', { maximumFractionDigits:6 })}</span>
       <span class="mono" style="font-size:14px;text-align:right">${eur(l.pru)}</span>
@@ -1330,7 +1330,7 @@ function viewContrat(name){
 
   const rows = c.lines.map(l => `
     <div class="tr" style="display:grid;grid-template-columns:${cols};padding:13px 0;align-items:center">
-      <div style="min-width:0"><div style="font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.name)}</div><div style="font-size:12px;color:var(--mut2)">${esc(l.classe)}${l.live ? ' · en direct' : ''}</div></div>
+      <div style="min-width:0"><div style="font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.name)}</div><div style="font-size:12px;color:var(--mut2)">${esc(l.classe)}${l.live ? ' · en direct' : ''}${l.fx ? ' · converti depuis ' + esc(l.fx.from) : ''}</div></div>
       <span class="mono" style="font-size:12px;color:var(--mut)">${esc(l.isin || '—')}</span>
       <span class="mono" style="font-size:13px;text-align:right;color:var(--mut)">${(l.qty ?? 0).toLocaleString('fr-FR', { maximumFractionDigits:6 })}</span>
       <span class="mono" style="font-size:13px;text-align:right;color:var(--mut)">${eur(l.price)}</span>

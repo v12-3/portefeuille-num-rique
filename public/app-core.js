@@ -942,7 +942,7 @@
         compte: p.compte, name: p.name, ticker: p.ticker, isin: p.isin, cat: p.cat || '',
         qty, pru: p.pru, price: round2(price), value: val, mise, pv,
         pct: mise ? round2(pv / mise * 100) : 0, classe: classOf(p),
-        symbol: q?.symbol || p.symbol || null, symbolPinned: !!p.symbol,
+        symbol: q?.symbol || p.symbol || null, symbolPinned: !!p.symbol, fx: q?.fx || null,
         source: q?.source || 'stocké', quotedAt: q?.at || null,
         manual: !!(q?.manual || p.manual),
         live: !!(q && typeof q.price === 'number' && !q.stale),
@@ -995,9 +995,17 @@
   }
 
   /** Positions à coter → payload minimal pour le Worker. */
+  /**
+   * Positions à coter → payload minimal pour le Worker.
+   * Une ligne connue seulement par son nom est aussi envoyée : le Worker la
+   * cherche sur Yahoo et ne l'accepte que si le libellé correspond (ou si le
+   * cours est à moins de 6 % du prix connu). Fonds euro et liquidités ne se
+   * cotent pas.
+   */
   function quoteRequest(positions) {
     return positions
-      .filter(p => !(p.manual || (!p.symbol && !p.ticker && !p.isin)))
+      .filter(p => !p.manual && !p.amountOnly && (p.symbol || p.ticker || p.isin || String(p.name || '').trim().length >= 3))
+      .filter(p => !['Fonds euro', 'Liquidités'].includes(classOf({ cat: p.cat || '', name: p.name || '' })))
       // Le Worker essaie d'abord la place de Paris (suffixe .PA) pour un compte
       // « PEA » ; un PEA-PME ou un CTO détient surtout des titres français,
       // l'indice de marché est donc le même (le Worker vérifie ensuite le cours).
@@ -1005,9 +1013,46 @@
         compte: /^(pea|cto)/i.test(p.compte || '') ? 'PEA' : (p.compte || null) }));
   }
 
+  /* ============================================================
+     Devises : tout est ramené en euros
+     Yahoo renvoie le cours dans la devise de la place de cotation (un ETF
+     MSCI World coté à Londres sort en dollars). Comparé tel quel au prix
+     d'achat en euros, il donnait une plus-value fausse.
+     ============================================================ */
+  /** Devises cotées en centièmes : Londres publie en pence (GBp). */
+  const MINOR = { GBp: ['GBP', 100], GBX: ['GBP', 100], ZAc: ['ZAR', 100], ILA: ['ILS', 100] };
+  const baseCurrency = cur => (MINOR[cur] ? MINOR[cur][0] : (cur || 'EUR'));
+  /** Symbole Yahoo du taux EUR→devise (unités de devise pour 1 €). */
+  const fxSymbol = cur => `EUR${cur}=X`;
+
+  /** Devises (hors euro) à convertir pour cet ensemble de cotations. */
+  function currenciesToConvert(quotes) {
+    const out = new Set();
+    for (const q of quotes) {
+      if (q && typeof q.price === 'number') { const c = baseCurrency(q.currency); if (c !== 'EUR') out.add(c); }
+    }
+    return [...out];
+  }
+
+  /**
+   * Cotation convertie en euros. rates[devise] = unités de devise pour 1 €.
+   * Sans taux disponible, le cours est écarté (jamais de montant faux affiché).
+   */
+  function toEur(q, rates = {}) {
+    if (!q || typeof q.price !== 'number') return q;
+    const cur = q.currency || 'EUR';
+    const [base, div] = MINOR[cur] || [cur, 1];
+    if (base === 'EUR' && div === 1) return q;
+    const rate = base === 'EUR' ? 1 : rates[base];
+    if (!(rate > 0)) return { ...q, price: null, error: `cours en ${base}, conversion en euros indisponible` };
+    const conv = v => typeof v === 'number' ? Math.round(v / div / rate * 10000) / 10000 : v;
+    return { ...q, price: conv(q.price), previousClose: conv(q.previousClose), currency: 'EUR', fx: { from: base, rate } };
+  }
+
   glob.PatrimoineCore = {
     parseFile, parseCsv, parseXlsx, mapColumns, detectKind,
     value, mergeOperations, mergePositions, classOf, quoteRequest, keyOf, opKey,
+    toEur, currenciesToConvert, fxSymbol,
     deriveFromOperations, inferColumns, normCompte, isSoldeCompte, paysOf, PLAFONDS,
     num, date, slug, round2, iso, frDate, EMPTY
   };

@@ -5,11 +5,11 @@
    le SDK Firestore gère lui-même son cache hors-ligne (IndexedDB). */
 'use strict';
 
-const CACHE = 'patrimoine-shell-v14';
+const CACHE = 'patrimoine-shell-v15';
 const SHELL = [
   '/m/', '/m/index.html', '/m/manifest.webmanifest',
   '/m/icon-192.png', '/m/icon-512.png',
-  '/firebase-config.js?v=10', '/app-core.js?v=10', '/ui-kit.js?v=10', '/firebase-client.js?v=10'
+  '/firebase-config.js?v=11', '/app-core.js?v=11', '/ui-kit.js?v=11', '/firebase-client.js?v=11'
 ];
 
 self.addEventListener('install', e => {

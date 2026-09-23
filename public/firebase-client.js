@@ -226,6 +226,7 @@ function start() {
      * données (appareil partagé en famille) et recharge une page propre.
      */
     async signOut() {
+      try { if (storeKey()) localStorage.removeItem(storeKey()); } catch { /* stockage bloqué */ }
       stopListening();
       try { await fbSignOut(auth); } catch (e) { console.warn('[auth] signOut :', e.message); }
       try { await terminate(db); await clearIndexedDbPersistence(db); } catch { /* autre onglet ouvert : cache conservé */ }
@@ -259,7 +260,9 @@ function start() {
     errorListeners.forEach(cb => { try { cb(lastError); } catch (err) { console.error(err); } });
   }
 
+  let autoTimer = null;
   function stopListening() {
+    clearInterval(autoTimer); autoTimer = null;
     unsubPortfolio?.(); unsubHistory?.(); unsubSettings?.();
     unsubPortfolio = unsubHistory = unsubSettings = null;
     rawPortfolio = null; history = []; lastSnapshot = null; uid = null; lastError = null;
@@ -271,6 +274,11 @@ function start() {
     stopListening();
     uid = user.uid;
     const mine = uid;                               // ignore les réponses d'une session précédente
+    restoreQuotes();
+    // cours rafraîchis toutes les 5 minutes tant que la page est affichée
+    autoTimer = setInterval(() => {
+      if (uid === mine && !document.hidden && rawPortfolio) recompute(true).catch(e => console.warn('[quotes]', e.message));
+    }, AUTO_REFRESH);
 
     unsubSettings = onSnapshot(settingsRef(), s => {
       if (uid !== mine) return;
@@ -321,21 +329,44 @@ function start() {
     return lastSnapshot;
   }
 
-  /* ---------- cotations ---------- */
-  const QUOTE_TTL = 60_000;
+  /* ---------- cotations (Yahoo via le Worker) ---------- */
+  const QUOTE_TTL = 60_000;                         // un cours de moins d'une minute n'est pas redemandé
+  const FX_TTL = 60 * 60_000;                       // taux de change : une heure
+  const AUTO_REFRESH = 5 * 60_000;                  // rafraîchissement automatique, page visible
   const quoteCache = {
     store: new Map(),                               // key → { q, at }
     map() { return new Map([...this.store].map(([k, v]) => [k, v.q])); },
-    fresh(key) { const e = this.store.get(key); return e && Date.now() - e.at < QUOTE_TTL; },
+    fresh(key) { const e = this.store.get(key); return e && !e.q?.stale && Date.now() - e.at < QUOTE_TTL; },
     put(map) { const now = Date.now(); for (const [k, q] of map) this.store.set(k, { q, at: now }); },
     clear() { this.store.clear(); }
   };
+  const fxCache = new Map();                        // devise → { rate, at }
 
-  /** Cotations depuis le Worker. Délai borné : jamais de blocage de l'interface. */
-  async function fetchQuotes(positions, force) {
-    if (!WORKER_URL || offline()) return new Map();
-    const req = Core.quoteRequest(positions).filter(r => force || !quoteCache.fresh(r.key));
-    if (!req.length) return new Map();
+  /*
+   * Derniers cours connus gardés sur l'appareil : à l'ouverture, les
+   * plus-values s'affichent tout de suite au dernier cours au lieu de repartir
+   * du prix d'achat (plus-value à 0) le temps que Yahoo réponde.
+   */
+  const storeKey = () => uid ? 'patrimoine:cours:' + uid : null;
+  function restoreQuotes() {
+    try {
+      const raw = storeKey() && localStorage.getItem(storeKey());
+      if (!raw) return;
+      for (const [k, v] of Object.entries(JSON.parse(raw))) {
+        if (v?.q && typeof v.q.price === 'number') quoteCache.store.set(k, { q: { ...v.q, stale: true }, at: v.at || 0 });
+      }
+    } catch { /* stockage indisponible : on attendra Yahoo */ }
+  }
+  function saveQuotes() {
+    try {
+      if (!storeKey()) return;
+      const out = {};
+      for (const [k, v] of quoteCache.store) if (typeof v.q?.price === 'number') out[k] = { q: { ...v.q, stale: undefined }, at: v.at };
+      localStorage.setItem(storeKey(), JSON.stringify(out));
+    } catch { /* quota ou stockage bloqué */ }
+  }
+
+  async function callWorker(req) {
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 15000);
     try {
@@ -355,6 +386,35 @@ function start() {
     }
   }
 
+  /** Taux EUR→devise (unités de devise pour 1 €), mis en cache une heure. */
+  async function fxRates(currencies) {
+    const now = Date.now();
+    const missing = currencies.filter(c => !(fxCache.get(c) && now - fxCache.get(c).at < FX_TTL));
+    if (missing.length) {
+      try {
+        const res = await callWorker(missing.map(c => ({ key: 'FX:' + c, symbol: Core.fxSymbol(c) })));
+        for (const c of missing) {
+          const q = res.get('FX:' + c);
+          if (typeof q?.price === 'number' && q.price > 0) fxCache.set(c, { rate: q.price, at: now });
+        }
+      } catch (e) { console.warn('[quotes] taux de change :', e.message); }
+    }
+    const rates = {};
+    for (const c of currencies) if (fxCache.get(c)) rates[c] = fxCache.get(c).rate;
+    return rates;
+  }
+
+  /** Cotations depuis le Worker, converties en euros. Délai borné, jamais bloquant. */
+  async function fetchQuotes(positions, force) {
+    if (!WORKER_URL || offline()) return new Map();
+    const req = Core.quoteRequest(positions).filter(r => force || !quoteCache.fresh(r.key));
+    if (!req.length) return new Map();
+    const raw = await callWorker(req);
+    const currencies = Core.currenciesToConvert([...raw.values()]);
+    const rates = currencies.length ? await fxRates(currencies) : {};
+    return new Map([...raw].map(([k, q]) => [k, Core.toEur(q, rates)]));
+  }
+
   let recomputing = null;
   /** Revalorise ; live=true interroge le Worker (seulement les cours périmés sauf force). */
   async function recompute(live, force = false) {
@@ -369,6 +429,7 @@ function start() {
         const fresh = await fetchQuotes(toQuote, force);
         if (uid !== mine) return null;
         quoteCache.put(fresh);
+        saveQuotes();
         revalue();
         if (fresh.size) {
           await persistResolvedSymbols(fresh);
