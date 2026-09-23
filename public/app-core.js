@@ -346,14 +346,30 @@
     if (montant != null) return montant < 0 ? 'Achat' : 'Versement';
     return 'Autre';
   }
+  /**
+   * Nom d'enveloppe normalisé. Chaque type d'enveloppe reste distinct : un CTO
+   * était auparavant rangé dans le PEA et un LDDS dans le Livret A, ce qui
+   * mélangeait des plafonds et des fiscalités différents.
+   */
   function normCompte(raw, fallback) {
     const s = slug(raw);
     if (!s) return fallback || 'PEA';
-    if (/(pea|bourse direct|compte titre|cto)/.test(s)) return 'PEA';
-    if (/(assurance vie|^av$|linxea|spirit|spirica|contrat)/.test(s)) return 'Assurance Vie';
-    if (/(livret|ldds|lep|epargne reglementee)/.test(s)) return 'Livret A';
-    return raw.trim();
+    if (/\bpea ?pme\b/.test(s)) return 'PEA-PME';
+    if (/\bpea\b|bourse direct/.test(s)) return 'PEA';
+    if (/compte titres?\b|\bcto\b|compte ordinaire/.test(s)) return 'CTO';
+    if (/\bper\b|plan epargne retraite/.test(s)) return 'PER';
+    if (/assurance vie|^av$|linxea|spirit|spirica|contrat/.test(s)) return 'Assurance Vie';
+    if (/\bldds?\b|developpement durable/.test(s)) return 'LDDS';
+    if (/\blep\b|epargne populaire/.test(s)) return 'LEP';
+    if (/^livret a\b|^livret$|livret bleu|epargne reglementee/.test(s)) return 'Livret A';
+    return String(raw).trim().slice(0, 40);
   }
+
+  /** Enveloppe tenue en solde (livret, fonds euro…) plutôt qu'en titres. */
+  const isSoldeCompte = c => /livret|ldds|lep|pel|cel|fonds euro|epargne|épargne|compte courant/i.test(c || '');
+
+  /** Plafonds de versement réglementaires (faits publics, pas des estimations). */
+  const PLAFONDS = { 'PEA': 150000, 'PEA-PME': 225000, 'Livret A': 22950, 'LDDS': 12000, 'LEP': 10000 };
 
   /* ============================================================
      Reconnaissance par le contenu
@@ -366,7 +382,7 @@
      ============================================================ */
 
   const ISIN_RE = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/;
-  const COMPTE_RE = /(pea|assurance|^av$|linxea|spirit|livret|ldds|lep|cto|compte titre|bourse direct)/i;
+  const COMPTE_RE = /(pea|assurance|^av$|linxea|spirit|livret|ldds|lep|cto|compte titre|bourse direct|^per$)/i;
   const TYPE_RE = /(achat|vente|buy|sell|versement|virement|dividende|coupon|interet|intérêt|retrait|souscription|arbitrage|apport|depot|dépôt)/i;
 
   /**
@@ -514,7 +530,7 @@
     const type = normType(cell(row, map.type) || libelle, montant);
     return {
       date: d, compte: normCompte(cell(row, map.compte), defaults.compte),
-      type, libelle: libelle || type,
+      type, libelle: libelle || String(cell(row, map.ticker) || cell(row, map.isin) || '').trim().toUpperCase() || type,
       ticker: String(cell(row, map.ticker) || '').trim().toUpperCase(),
       isin: String(cell(row, map.isin) || '').trim().toUpperCase(),
       montant: round2(montant),
@@ -632,11 +648,12 @@
         Object.assign(existing, {
           name: p.name || existing.name, ticker: p.ticker || existing.ticker,
           isin: p.isin || existing.isin, qty: p.qty ?? existing.qty,
-          pru: p.pru ?? existing.pru, price: p.price ?? existing.price, cat: p.cat || existing.cat
+          pru: p.pru ?? existing.pru, price: p.price ?? existing.price, cat: p.cat || existing.cat,
+          amount: p.amount ?? existing.amount ?? null, source: 'releve'
         });
         updated++;
       } else {
-        portfolio.positions.push({ ...p, addedAt: iso(new Date()) });
+        portfolio.positions.push({ ...p, source: 'releve', addedAt: iso(new Date()) });
         added++;
       }
     }
@@ -661,6 +678,13 @@
    *
    * @returns {{positions: Array, cash: Object}}
    */
+  /**
+   * Ligne issue d'un relevé de positions importé (et non d'une saisie).
+   * Les anciennes données n'ont pas de `source` : un relevé importé porte
+   * toujours le champ `amount`, qu'une saisie manuelle n'a jamais.
+   */
+  const isSnapshotLine = p => p.source ? p.source === 'releve' : ('amount' in p);
+
   /** Types qui déplacent réellement des espèces sur le compte. */
   const CASH_TYPES = new Set(['Versement', 'Ouverture', 'Retrait', 'Achat', 'Vente', 'Dividende']);
 
@@ -696,7 +720,12 @@
         if (id) explicit.add((p.compte || '') + '::' + String(id).toUpperCase());
       }
     }
-    const comptesWithExplicit = new Set((portfolio.positions || []).map(p => p.compte));
+    // Enveloppes décrites par un RELEVÉ de positions importé : il est réputé
+    // complet, on n'y ajoute ni lignes ni trésorerie déduites des opérations.
+    // Une simple ligne saisie à la main ne rend PAS l'enveloppe « complète » :
+    // avant, en ajouter une faisait disparaître les liquidités et les autres
+    // lignes calculées de l'enveloppe.
+    const comptesWithExplicit = new Set((portfolio.positions || []).filter(isSnapshotLine).map(p => p.compte));
 
     const held = new Map();      // compte::clé → { compte, name, ticker, isin, qty, cost }
     const flow = {};             // compte → solde de trésorerie déduit des flux
@@ -743,7 +772,9 @@
         : (Number.isFinite(price) && price > 0 ? qty * price : Math.abs(montant));
 
       const k = compte + '::' + label.toUpperCase();
-      const cur = held.get(k) || { compte, name: o.libelle || label, ticker: o.ticker || '', isin: o.isin || '', qty: 0, cost: 0, amountOnly: false };
+      // un libellé qui se réduit au type d'opération (« Achat ») ne nomme pas le titre
+      const nom = (o.libelle && o.libelle !== o.type) ? o.libelle : label;
+      const cur = held.get(k) || { compte, name: nom, ticker: o.ticker || '', isin: o.isin || '', qty: 0, cost: 0, amountOnly: false };
       if (amountOnly) cur.amountOnly = true;
       if (amountOnly && o.type === 'Achat') {
         // cumul du montant investi, la « quantité » reste 1
@@ -766,6 +797,7 @@
     const positions = [];
     for (const [k, h] of held) {
       if (h.qty <= 0.0000001) continue;                 // ligne soldée
+      if (comptesWithExplicit.has(h.compte)) continue;  // relevé complet : il fait foi
       // couverte par une ligne explicite sous n'importe lequel de ses identifiants
       const ids = [h.isin, h.ticker, h.name].filter(Boolean).map(id => h.compte + '::' + String(id).toUpperCase());
       if (ids.some(id => explicit.has(id)) || explicit.has(k)) continue;
@@ -810,11 +842,42 @@
     const epargneMois = round2(versements.filter(o => o.date.slice(0, 7) === ym).reduce((s, o) => s + Math.abs(o.montant), 0));
     const total = round2(versements.reduce((s, o) => s + Math.abs(o.montant), 0));
     const months = new Set(ops.map(o => o.date.slice(0, 7)));
+    // plus ancienne date réelle, sans supposer que le journal est trié
+    const premiere = ops.reduce((min, o) => (o.date && (!min || o.date < min)) ? o.date : min, null);
     return {
       epargneMois, versementsTotal: total, moisSuivis: months.size,
       epargneMoyenne: months.size ? round2(total / months.size) : 0,
-      premiereOperation: ops.length ? ops[ops.length - 1].date : null
+      premiereOperation: premiere
     };
+  }
+
+  /** Date de la première opération d'une enveloppe (ISO) ou null. */
+  function firstOperationDate(ops, compte) {
+    let min = null;
+    for (const o of ops || []) if (o.compte === compte && o.date && (!min || o.date < min)) min = o.date;
+    return min;
+  }
+
+  /**
+   * Pays d'émission déduit du préfixe ISIN. Pour une action en direct, c'est le
+   * pays de la société. Pour un fonds (ISIN IE/LU le plus souvent), c'est le
+   * pays de domiciliation, PAS l'exposition réelle : on le dit au lieu de
+   * prétendre connaître la composition du fonds.
+   */
+  const PAYS = {
+    FR: 'France', US: 'États-Unis', DE: 'Allemagne', NL: 'Pays-Bas', IT: 'Italie', ES: 'Espagne',
+    BE: 'Belgique', GB: 'Royaume-Uni', CH: 'Suisse', JP: 'Japon', CA: 'Canada', SE: 'Suède',
+    DK: 'Danemark', FI: 'Finlande', NO: 'Norvège', PT: 'Portugal', AT: 'Autriche', AU: 'Australie',
+    CN: 'Chine', HK: 'Hong Kong', KR: 'Corée du Sud', TW: 'Taïwan', IN: 'Inde', BR: 'Brésil'
+  };
+  function paysOf(line) {
+    const isin = String(line.isin || '').toUpperCase();
+    const cc = isin.slice(0, 2);
+    const fonds = /etf|ucits|fonds|fund|sicav|fcp|opcvm/i.test((line.cat || '') + ' ' + (line.name || '')) || line.classe === 'ETF actions' || line.classe === 'Obligations' || line.classe === 'Fonds euro';
+    if (line.classe === 'Fonds euro') return 'Fonds euro';
+    if (!/^[A-Z]{2}$/.test(cc)) return 'Pays non identifié';
+    if (fonds || cc === 'IE' || cc === 'LU') return 'Fonds (composition non détaillée)';
+    return PAYS[cc] || `Autre pays (${cc})`;
   }
   function dividends(ops = []) {
     const byYear = {};
@@ -830,19 +893,22 @@
     return byYear;
   }
   function allocation(comptes, lines) {
-    const titre = [], classe = {};
+    const titre = [], classe = {}, pays = {};
+    const add = (obj, k, v) => { obj[k] = round2((obj[k] || 0) + v); };
     for (const [name, c] of Object.entries(comptes)) {
-      if (c.garanti) { titre.push([name, c.value]); classe['Épargne garantie'] = round2((classe['Épargne garantie'] || 0) + c.value); }
-      if (c.cash) classe['Liquidités'] = round2((classe['Liquidités'] || 0) + c.cash);
+      if (c.garanti && c.balance) { titre.push([name, c.balance]); add(classe, 'Épargne garantie', c.balance); add(pays, 'Épargne garantie', c.balance); }
+      if (c.cash) { add(classe, 'Liquidités', c.cash); add(pays, 'Liquidités', c.cash); }
     }
-    for (const l of lines) { titre.push([l.name, l.value]); classe[l.classe] = round2((classe[l.classe] || 0) + l.value); }
+    for (const l of lines) { titre.push([l.name, l.value]); add(classe, l.classe, l.value); add(pays, paysOf(l), l.value); }
     const cashTotal = Object.values(comptes).reduce((s, c) => s + (c.cash || 0), 0);
     if (cashTotal) titre.push(['Liquidités', round2(cashTotal)]);
     titre.sort((a, b) => b[1] - a[1]);
+    const sorted = o => Object.entries(o).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
     return {
-      titre,
-      classe: Object.entries(classe).sort((a, b) => b[1] - a[1]),
-      parEnveloppe: Object.entries(comptes).map(([n, c]) => [n, c.value]).sort((a, b) => b[1] - a[1])
+      titre: titre.filter(([, v]) => v > 0),
+      classe: sorted(classe),
+      pays: sorted(pays),
+      parEnveloppe: Object.entries(comptes).map(([n, c]) => [n, c.value]).filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1])
     };
   }
 
@@ -897,9 +963,13 @@
       c.balance = bal.value; c.taux = bal.taux; c.garanti = true;
       if (bal.taux) c.interets = round2(bal.value * bal.taux / 100);
     }
+    const ops = portfolio.operations || [];
     for (const c of Object.values(comptes)) {
       c.pv = round2(c.value - c.mise); c.pvPct = c.mise ? round2(c.pv / c.mise * 100) : 0;
       c.lines.sort((a, b) => b.pv - a.pv);
+      c.premiereOperation = firstOperationDate(ops, c.name);
+      c.plafond = PLAFONDS[c.name] || null;
+      c.solde = isSoldeCompte(c.name);
     }
 
     const patrimoine = round2(Object.values(comptes).reduce((s, c) => s + c.value, 0));
@@ -914,12 +984,12 @@
         patrimoine, capital, pv: round2(patrimoine - capital),
         pvPct: capital ? round2((patrimoine - capital) / capital * 100) : 0,
         partBourse: patrimoine ? round2(bourse / patrimoine * 100) : 0, dayChange,
-        ...flows(portfolio.operations)
+        ...flows(ops)
       },
       comptes, lines, allocation: allocation(comptes, lines),
       cashDetail: derived.cashDetail,        // décomposition de la trésorerie déduite
-      operations: portfolio.operations.map(o => ({ ...o, dateFr: frDate(o.date) })),
-      dividends: dividends(portfolio.operations),
+      operations: ops.map((o, i) => ({ ...o, dateFr: frDate(o.date), idx: i })),
+      dividends: dividends(ops),
       imports: (portfolio.meta?.imports || []).slice(-8).reverse()
     };
   }
@@ -928,12 +998,17 @@
   function quoteRequest(positions) {
     return positions
       .filter(p => !(p.manual || (!p.symbol && !p.ticker && !p.isin)))
-      .map(p => ({ key: keyOf(p), symbol: p.symbol || null, isin: p.isin || null, ticker: p.ticker || null, name: p.name || null, price: p.price ?? null, compte: p.compte || null }));
+      // Le Worker essaie d'abord la place de Paris (suffixe .PA) pour un compte
+      // « PEA » ; un PEA-PME ou un CTO détient surtout des titres français,
+      // l'indice de marché est donc le même (le Worker vérifie ensuite le cours).
+      .map(p => ({ key: keyOf(p), symbol: p.symbol || null, isin: p.isin || null, ticker: p.ticker || null, name: p.name || null, price: p.price ?? null,
+        compte: /^(pea|cto)/i.test(p.compte || '') ? 'PEA' : (p.compte || null) }));
   }
 
   glob.PatrimoineCore = {
     parseFile, parseCsv, parseXlsx, mapColumns, detectKind,
-    value, mergeOperations, mergePositions, classOf, quoteRequest, keyOf,
-    deriveFromOperations, inferColumns, num, date, slug, round2, iso, frDate, EMPTY
+    value, mergeOperations, mergePositions, classOf, quoteRequest, keyOf, opKey,
+    deriveFromOperations, inferColumns, normCompte, isSoldeCompte, paysOf, PLAFONDS,
+    num, date, slug, round2, iso, frDate, EMPTY
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

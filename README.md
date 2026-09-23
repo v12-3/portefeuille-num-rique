@@ -142,13 +142,23 @@ automatiquement au premier lancement si les fichiers réels sont absents.
 
 Écritures atomiques (fichier temporaire + rename), pas de JSON tronqué en cas de coupure.
 
-### Ce qui reste statique dans l'UI
+### Aucune donnée inventée
 
-Non déductible d'un export courtier, donc codé en dur dans `public/index.html` :
-projections de dividendes à venir, répartition **sectorielle** (transparence des ETF),
-onglet **Exposition réelle** (look-through des ETF) et ses commentaires, dates de maturité
-fiscale. Tout le reste — totaux, plus-values, cours, allocation par ligne et par classe,
-journal, dividendes encaissés, projection d'objectif — est calculé.
+Plus rien n'est codé en dur dans l'interface : tout est calculé à partir des opérations,
+lignes et soldes de l'utilisateur (totaux, plus-values, cours, répartitions par ligne,
+classe, enveloppe et pays d'émission, dividendes encaissés, échéances fiscales, plafonds
+réglementaires). Ce qu'un relevé courtier ne permet pas de connaître — secteurs,
+composition des ETF, dividendes à venir — n'est pas affiché plutôt qu'estimé.
+
+### Tests
+
+```bash
+npm test
+```
+
+Les tests (`tests/core.test.mjs`, sans dépendance) verrouillent les montants : conventions
+de signe des exports, liquidités, ventes, relevés de positions, répartitions qui
+totalisent exactement le patrimoine.
 
 ## Calcul de la plus-value
 

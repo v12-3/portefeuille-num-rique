@@ -1,7 +1,7 @@
 {
   "name": "Patrimoine",
   "short_name": "Patrimoine",
-  "description": "Suivi PEA, assurance vie et Livret A avec cotations en direct",
+  "description": "Suivi de patrimoine : PEA, CTO, assurance vie, livrets, avec cotations en direct",
   "lang": "fr",
   "start_url": "/m/",
   "scope": "/m/",
@@ -16,7 +16,7 @@
     { "src": "/m/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ],
   "shortcuts": [
-    { "name": "Importer un fichier", "url": "/m/?action=import" },
+    { "name": "Ajouter", "url": "/m/?action=add" },
     { "name": "Activité", "url": "/m/?screen=ops" }
   ]
 }

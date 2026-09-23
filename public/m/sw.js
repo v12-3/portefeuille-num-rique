@@ -1,16 +1,15 @@
 /* Service worker de l'app mobile.
    Coquille en cache pour un démarrage hors réseau. Les appels Firebase
-   (Auth, Firestore, Cloud Functions) partent vers des origines Google
-   distinctes (googleapis.com, cloudfunctions.net) : le filtre d'origine
-   ci-dessous les laisse passer sans interférer — le SDK Firestore gère
-   lui-même son propre cache hors-ligne (IndexedDB). */
+   (Auth, Firestore) et le service de cotations partent vers d'autres
+   origines : le filtre d'origine ci-dessous les laisse passer sans y toucher —
+   le SDK Firestore gère lui-même son cache hors-ligne (IndexedDB). */
 'use strict';
 
-const CACHE = 'patrimoine-shell-v12';
+const CACHE = 'patrimoine-shell-v13';
 const SHELL = [
-  '/m/', '/m/index.html', '/m/world-exposure.html', '/m/manifest.webmanifest',
+  '/m/', '/m/index.html', '/m/manifest.webmanifest',
   '/m/icon-192.png', '/m/icon-512.png',
-  '/firebase-config.js?v=9', '/app-core.js?v=9', '/firebase-client.js?v=9'
+  '/firebase-config.js?v=10', '/app-core.js?v=10', '/ui-kit.js?v=10', '/firebase-client.js?v=10'
 ];
 
 self.addEventListener('install', e => {
@@ -27,17 +26,20 @@ self.addEventListener('activate', e => {
 
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
-  // laisse passer tout ce qui n'est pas un GET same-origin (POST, requêtes Firebase
-  // vers d'autres domaines, etc.) sans passer par le cache de la coquille.
+  // laisse passer tout ce qui n'est pas un GET same-origin (POST, Firebase,
+  // cotations…) sans passer par le cache de la coquille.
   if (e.request.method !== 'GET' || url.origin !== location.origin) return;
 
   e.respondWith(
     fetch(e.request)
       .then(res => {
-        const copy = res.clone();
-        caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+        // seules les réponses complètes et valides remplacent la copie en cache
+        if (res.ok && res.type === 'basic') {
+          const copy = res.clone();
+          caches.open(CACHE).then(c => c.put(e.request, copy)).catch(() => {});
+        }
         return res;
       })
-      .catch(() => caches.match(e.request).then(r => r || caches.match('/m/index.html')))
+      .catch(() => caches.match(e.request).then(r => r || (e.request.mode === 'navigate' ? caches.match('/m/index.html') : Response.error())))
   );
 });

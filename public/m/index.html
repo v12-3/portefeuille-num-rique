@@ -2,16 +2,17 @@
 <html lang="fr">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="theme-color" content="#ffffff">
 <meta name="mobile-web-app-capable" content="yes">
 <title>Patrimoine</title>
 <link rel="manifest" href="/m/manifest.webmanifest">
 <link rel="icon" href="/m/icon-192.png">
 <!-- ?v= : incrémenter à chaque déploiement touchant ces fichiers (cf. index.html). -->
-<script src="/firebase-config.js?v=9"></script>
-<script src="/app-core.js?v=9"></script>
-<script type="module" src="/firebase-client.js?v=9"></script>
+<script src="/firebase-config.js?v=10"></script>
+<script src="/app-core.js?v=10"></script>
+<script src="/ui-kit.js?v=10"></script>
+<script type="module" src="/firebase-client.js?v=10"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -46,7 +47,7 @@ body{
 .dot.off{background:var(--mut3)}
 .dot.live{animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-.icon-btn{width:38px;height:38px;border-radius:9999px;background:var(--bg);display:flex;align-items:center;justify-content:center;flex:none;border:0;padding:0;cursor:pointer}
+.icon-btn{width:38px;height:38px;border-radius:9999px;background:var(--bg);color:var(--ink);font-size:16px;font-family:inherit;display:flex;align-items:center;justify-content:center;flex:none;border:0;padding:0;cursor:pointer}
 .icon-btn:active{background:var(--line2)}
 .icon-btn.primary{background:var(--blue)}
 .icon-btn.primary:active{background:var(--blue-d)}
@@ -115,6 +116,12 @@ main{scrollbar-width:none}
 .code{background:var(--bg);border-radius:12px;padding:12px 14px;font-family:var(--mono);font-size:11px;line-height:1.7;color:var(--mut)}
 .btn-p{height:48px;border-radius:100px;background:var(--blue);color:#fff;font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;border:0;width:100%;font-family:inherit}
 .btn-p[disabled]{opacity:.5}
+.btn-s{height:44px;border-radius:100px;background:var(--white);color:var(--ink);font-size:14px;font-weight:600;display:flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid var(--line);width:100%;font-family:inherit}
+.btn-s.danger,.linkbtn.danger{color:var(--red)}
+.linkbtn{background:none;border:0;padding:6px 4px;font:600 13px/1 inherit;font-family:inherit;color:var(--blue);cursor:pointer;flex:none}
+.link{color:var(--blue);font-weight:600;cursor:pointer}
+.chips[style*="flex-wrap"]{overflow:visible}
+.field input[type=date]{min-width:0;width:100%}
 .report{border-radius:12px;padding:12px 14px;font-size:13px;line-height:1.55}
 .report.ok{background:#f0fdf6;border:1px solid #b9ecd2;color:#0a5c3a}
 .report.err{background:#fff5f5;border:1px solid #f3c9cd;color:#8c1620}
@@ -126,9 +133,9 @@ main{scrollbar-width:none}
 .auth-shell{min-height:100dvh;display:flex;align-items:center;justify-content:center;padding:24px}
 .auth-card{width:100%;max-width:380px}
 .auth-brand{display:flex;align-items:center;gap:10px;margin-bottom:24px}
-.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px;min-width:0}
 .field label{font-size:13px;font-weight:600;color:var(--mut)}
-.field input{height:46px;border:1px solid var(--line);border-radius:12px;padding:0 14px;font-size:15px;font-family:inherit;color:var(--ink);background:#fff}
+.field input{width:100%;min-width:0;height:46px;border:1px solid var(--line);border-radius:12px;padding:0 14px;font-size:16px;font-family:inherit;color:var(--ink);background:#fff}
 .field input:focus{outline:2px solid var(--blue);outline-offset:-1px;border-color:var(--blue)}
 .auth-error{background:#fff5f5;border:1px solid #f3c9cd;color:#8c1620;border-radius:12px;padding:12px 14px;font-size:13px;margin-bottom:12px;line-height:1.5}
 .auth-alt{text-align:center;margin-top:16px;font-size:13px;color:var(--mut)}
@@ -145,61 +152,18 @@ main{scrollbar-width:none}
 "use strict";
 
 /* ============================================================
-   Données statiques (mêmes réserves que sur le dashboard :
-   look-through ETF et commentaires d'exposition non déductibles
-   d'un export courtier)
+   Constantes. Aucune donnée de démonstration : tout ce qui s'affiche est
+   calculé sur les opérations, lignes et soldes de l'utilisateur.
    ============================================================ */
 const PAL = ['#0052ff','#0a0b0d','#4d84ff','#5b616e','#99b7ff','#a8acb3','#c8ccd2','#dee1e6','#eef0f3'];
 const MSHORT = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
 const MLONG = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
 const HIDDEN = '•••• €';
-
-const SECTEURS = {
-  'Tout': [['Épargne réglementée',6686.68],['Industrie & équipement',577.04],['Technologie & logiciel',533.05],['Énergie & utilities',158.06],['Obligations & fonds euro',157.47],['Finance',47.27],['Consommation',40.52],['Santé',33.77],['Autres secteurs',50.66]],
-  'PEA': [['Industrie & équipement',539.90],['Logiciel & services IT',425.00],['Énergie & utilities',137.80],['Liquidités',5.00]],
-  'Assurance Vie': [['Obligations & fonds euro',157.47],['Technologie',108.05],['Finance',47.27],['Consommation',40.52],['Industrie',37.14],['Santé',33.77],['Énergie & utilities',20.26],['Autres secteurs',50.66]]
-};
-const NOTES = {
-  'Tout': { titre:'Le Livret A est de loin le premier poste du patrimoine.', secteur:'Répartition sectorielle estimée par transparence sur les ETF.', classe:'Part garantie, actions et obligations recalculées à chaque cotation.' },
-  'PEA': { titre:'Trois lignes seulement, très concentrées.', secteur:'Aucune diversification sectorielle réelle.', classe:'Que des actions en direct, aucun ETF.' },
-  'Assurance Vie': { titre:'Neuf supports, dont deux ETF sur le même indice.', secteur:'Contrat partagé entre poche actions et poche obligataire.', classe:'ETF actions, obligations et fonds euro.' }
-};
-const EXPO = {
-  'Tout': [
-    ['Schneider Electric',539.90,0.58,'En direct + Vanguard Europe'],
-    ['Sidetrade',425.00,0,'En direct (PEA) uniquement'],
-    ['Engie',137.80,0.22,'En direct + Vanguard Europe'],
-    ['NVIDIA',0,19.42,'Amundi S&P 500 ×2 + MSCI World'],
-    ['Microsoft',0,16.83,'Amundi S&P 500 ×2 + MSCI World'],
-    ['Apple',0,15.55,'Amundi S&P 500 ×2 + MSCI World']
-  ],
-  'PEA': [
-    ['Schneider Electric',539.90,0,'En direct'],
-    ['Sidetrade',425.00,0,'En direct'],
-    ['Engie',137.80,0,'En direct']
-  ],
-  'Assurance Vie': [
-    ['NVIDIA',0,19.42,'Amundi S&P 500 ×2 + MSCI World'],
-    ['Microsoft',0,16.83,'Amundi S&P 500 ×2 + MSCI World'],
-    ['Apple',0,15.55,'Amundi S&P 500 ×2 + MSCI World'],
-    ['Amazon',0,9.84,'Amundi S&P 500 ×2 + MSCI World'],
-    ['Alphabet',0,8.95,'Amundi S&P 500 ×2 + MSCI World']
-  ]
-};
-const EXPO_META = {
-  'Tout': { title:"L'exposition réelle aux actions reste minoritaire", body:'Le Livret A absorbe l\'essentiel du patrimoine ; seules les lignes du PEA et les UC de l\'assurance vie sont exposées aux marchés.', overlap:'100 %', overlapNote:'Les deux ETF Amundi suivent le même S&P 500 — doublon d\'exposition.', top5:'95,6 %', top5Bar:95.6 },
-  'PEA': { title:'Trois lignes, aucune diversification', body:'Aucun ETF dans le PEA : la performance dépend entièrement de Schneider, Sidetrade et Engie. Sidetrade est une small cap peu liquide.', overlap:'—', overlapNote:'Aucun fonds dans l\'enveloppe : pas de chevauchement, mais aucune dilution du risque non plus.', top5:'99,5 %', top5Bar:99.5 },
-  'Assurance Vie': { title:'Deux ETF pour un seul indice', body:'Amundi Core S&P 500 et Amundi S&P 500 Hedged suivent le même panier. Avec le MSCI World, l\'exposition américaine dépasse la moitié du contrat.', overlap:'100 %', overlapNote:'Le S&P 500 pèse aussi 71 % du MSCI World : trois supports se recouvrent.', top5:'87,3 %', top5Bar:87.3 }
-};
-
 const OPICON = { Achat:'↓', Vente:'↑', Versement:'+', Dividende:'€', Ouverture:'★', Retrait:'−' };
+const OP_TYPES = ['Versement', 'Retrait', 'Achat', 'Vente', 'Dividende', 'Ouverture'];
+const BASE_COMPTES = ['PEA', 'CTO', 'Assurance Vie', 'PER', 'Livret A', 'LDDS', 'LEP'];
 
-/* Constantes réglementaires françaises (faits, pas des estimations) */
-const PLAFOND_PEA = 150000;
-const PLAFOND_LIVRET_A = 22950;
-
-/* Réglages personnels : aucune valeur inventée tant que l'utilisateur n'a rien
-   renseigné (les dépenses mensuelles étaient auparavant figées à 1 500 €). */
+/* Réglages personnels : aucune valeur inventée tant que l'utilisateur n'a rien renseigné. */
 const depensesMensuelles = () => snap?.settings?.monthlyExpenses || null;
 const matelas = valeur => {
   const m = depensesMensuelles();
@@ -208,9 +172,9 @@ const matelas = valeur => {
 
 /** Ancienneté d'une enveloppe et part du délai fiscal écoulée, depuis sa première opération. */
 function premiereOp(compteName){
-  const ops = (snap?.operations || []).filter(o => o.compte === compteName);
-  if (!ops.length) return null;
-  const d = new Date(ops[ops.length - 1].date);
+  const iso = snap?.comptes?.[compteName]?.premiereOperation;
+  if (!iso) return null;
+  const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 function anciennete(compteName){
@@ -253,44 +217,26 @@ const mSEur  = n => state.hide ? HIDDEN : sEur(n);
    ============================================================ */
 const state = {
   screen:'accueil', mode:'env', env:'PEA', scope:'Tout', tab:'titre',
-  seg:null, filt:'Tous', sheet:false, hov:null,
-  hide: localStorage.getItem('hideAmounts') === '1',
+  seg:null, filt:'Tous', sheet:false, sheetTab:'saisie', formCompte:'PEA', editing:null,
+  hov:null, hide: readPref('hideAmounts') === '1',
   importing:false, report:null,
-  user:undefined, authMode:'signin', authBusy:false, authError:null
+  user:undefined                     // undefined = état d'auth pas encore connu, null = déconnecté
 };
 let snap = null;
 let conn = { status:'connecting', at:null, error:null };
 let dataError = null;
 let unsubData = null;
-let geoHeight = 720;
+const UI = window.PatrimoineUI;
 
-/* La carte d'exposition remonte sa hauteur réelle : on redimensionne l'iframe
-   sans re-render, sinon elle se rechargerait à chaque message. */
-function setGeoHeight(h){
-  const frame = document.getElementById('geo');
-  if (!frame || !(h > 200)) return;
-  geoHeight = h + 4;
-  frame.style.height = geoHeight + 'px';
-}
+/* Raccourcis de l'app installée (manifest) : ?screen=ops, ?action=add */
+const START = (() => {
+  const p = new URLSearchParams(location.search);
+  return { screen: ['accueil','portefeuille','ops'].includes(p.get('screen')) ? p.get('screen') : 'accueil', sheet: /^(add|import)$/.test(p.get('action') || '') };
+})();
 
-window.addEventListener('message', e => {
-  const frame = document.getElementById('geo');
-  if (!frame || e.origin !== location.origin || e.source !== frame.contentWindow) return;
-  if (e.data?.type === 'worldExposureHeight') setGeoHeight(e.data.height);
-});
-
-/* Filet de sécurité : l'iframe est de même origine, on mesure nous-mêmes son
-   contenu. Couvre le cas où ses messages n'arrivent pas (page non composée). */
-function observeGeo(frame){
-  const attach = () => {
-    const doc = frame.contentDocument;
-    if (!doc?.body) return;
-    setGeoHeight(doc.body.scrollHeight);
-    new ResizeObserver(() => setGeoHeight(doc.body.scrollHeight)).observe(doc.body);
-  };
-  frame.addEventListener('load', attach);
-  attach();
-}
+/* localStorage peut être indisponible (navigation privée, stockage bloqué) */
+function readPref(k){ try { return localStorage.getItem(k); } catch { return null; } }
+function writePref(k, v){ try { localStorage.setItem(k, v); } catch { /* préférence non conservée */ } }
 
 function set(patch){
   let changed = false;
@@ -300,19 +246,21 @@ function set(patch){
 
 /* ============================================================
    Auth + données (Firebase — voir /firebase-client.js)
-   Le SDK Firestore gère nativement la persistance hors-ligne (IndexedDB) :
-   plus besoin de recopier l'instantané dans localStorage à la main.
+   Le SDK Firestore gère la persistance hors-ligne (IndexedDB).
    ============================================================ */
 
 function subscribeData(){
   unsubData?.();
   dataError = null;
-  unsubData = window.PatrimoineData.onSnapshot(s => {
-    snap = s;
-    conn = s ? { status: s.quotes?.failed?.length ? 'partial' : 'live', at: Date.now(), error: null } : conn;
-    render();
-  });
-  window.PatrimoineData.refreshPerf(false).catch(e => { dataError = e.message; render(); });
+  unsubData = window.PatrimoineData.onSnapshot(
+    s => {
+      snap = s;
+      dataError = null;
+      if (s) conn = { status: s.quotes?.failed?.length ? 'partial' : 'live', at: Date.now(), error: null };
+      render();
+    },
+    message => { dataError = message; render(); }
+  );
 }
 
 function unsubscribeData(){
@@ -321,13 +269,35 @@ function unsubscribeData(){
 }
 
 function handleUser(user){
+  const changed = (state.user?.uid || null) !== (user?.uid || null) || state.user === undefined;
   state.user = user;
+  if (!changed) return;
   if (user) subscribeData(); else unsubscribeData();
+  Object.assign(state, { screen:START.screen, sheet:!!user && START.sheet, editing:null, report:null });
+  START.sheet = false;
   render();
 }
 
 function boot(){ window.PatrimoineAuth.onUser(handleUser); }
-function whenFirebaseReady(cb){ window.PatrimoineAuth ? cb() : window.addEventListener('patrimoine:ready', cb, { once:true }); }
+
+/** Sens réel d'une opération, quel que soit le signe utilisé par le fichier d'origine. */
+const opAmount = o => (o.type === 'Achat' || o.type === 'Retrait') ? -Math.abs(o.montant) : Math.abs(o.montant);
+const isSoldeCompte = c => window.PatrimoineCore.isSoldeCompte(c);
+const rawCash = () => window.PatrimoineData?.portfolio?.cash || {};
+
+/** Explique d'où vient une trésorerie déduite des opérations. */
+function cashExplain(compteName){
+  const d = snap?.cashDetail?.[compteName];
+  if (!d) return 'déduites de tes opérations';
+  const parts = [];
+  const entrees = (d.Versement || 0) + (d.Ouverture || 0);
+  if (entrees) parts.push(`${eur0(entrees)} versés`);
+  if (d.Vente) parts.push(`${eur0(d.Vente)} de ventes`);
+  if (d.Dividende) parts.push(`${eur0(d.Dividende)} de dividendes`);
+  if (d.Achat) parts.push(`− ${eur0(d.Achat)} investis`);
+  if (d.Retrait) parts.push(`− ${eur0(d.Retrait)} retirés`);
+  return parts.length ? `${parts.join(' · ')} (${d.count} opérations)` : 'déduites de tes opérations';
+}
 
 /* ============================================================
    Sélecteurs
@@ -357,12 +327,12 @@ function chart(points, W, H, pad = 10){
    Barre haute
    ============================================================ */
 function status(){
-  if (conn.status === 'offline') return { dot:'off', text: snap ? 'Hors ligne · dernières valeurs connues' : esc(conn.error || 'serveur injoignable') };
-  if (conn.status === 'cache') return { dot:'off', text:'Chargement…' };
+  if (navigator.onLine === false) return { dot:'off', text:'Hors ligne · dernières valeurs connues' };
   const failed = snap?.quotes?.failed?.length || 0;
   const total = (snap?.lines || []).length;
   const age = conn.at ? Math.round((Date.now() - conn.at) / 1000) : null;
   const when = age == null ? '' : (age < 90 ? `il y a ${age} s` : `il y a ${Math.round(age/60)} min`);
+  if (!snap?.live) return { dot:'off', text: total ? 'Derniers cours connus' : 'Patrimoine' };
   if (failed) return { dot:'warn', text:`${total - failed}/${total} cotations · ${when}` };
   return { dot:'live', text:`À jour · ${when}` };
 }
@@ -388,8 +358,8 @@ function header(){
           ? `<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z" stroke="#5b616e" stroke-width="1.5"/><path d="M3 3l14 14" stroke="#5b616e" stroke-width="1.5" stroke-linecap="round"/></svg>`
           : `<svg width="18" height="18" viewBox="0 0 20 20" fill="none"><path d="M2 10s3-5.5 8-5.5S18 10 18 10s-3 5.5-8 5.5S2 10 2 10z" stroke="#5b616e" stroke-width="1.5"/><circle cx="10" cy="10" r="2.2" stroke="#5b616e" stroke-width="1.5"/></svg>`}
       </button>
-      <button class="icon-btn primary" data-act="sheet" data-arg="1" aria-label="Importer des données">
-        <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 11V2M8 2L4.5 5.5M8 2l3.5 3.5M2 11v2a1 1 0 001 1h10a1 1 0 001-1v-2" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <button class="icon-btn primary" data-act="sheet" data-arg="1" aria-label="Ajouter une ligne ou importer un fichier">
+        <svg width="18" height="18" viewBox="0 0 16 16" fill="none"><path d="M8 3v10M3 8h10" stroke="#fff" stroke-width="1.8" stroke-linecap="round"/></svg>
       </button>
     </div>
   </div>`;
@@ -414,13 +384,13 @@ function screenAccueil(){
 
   const envCards = comptes().map(name => {
     const e = compte(name);
-    const garanti = !!e.garanti;
+    const garanti = !!e.garanti && !e.lines.length;
     return `
     <div class="list-row" data-act="env" data-arg="${esc(name)}">
-      <div class="ava">${abbr(name)}</div>
+      <div class="ava">${esc(abbr(name))}</div>
       <div class="grow">
-        <div style="font-size:15px;font-weight:600">${esc(name)}</div>
-        <div class="ell" style="font-size:12px;color:var(--mut2)">${garanti ? `Épargne garantie · ${e.taux ? pctS(e.taux) : '—'}` : `${e.lines.length} ligne${e.lines.length > 1 ? 's' : ''}`}</div>
+        <div class="ell" style="font-size:15px;font-weight:600">${esc(name)}</div>
+        <div class="ell" style="font-size:12px;color:var(--mut2)">${garanti ? `Épargne garantie · ${e.taux ? pctS(e.taux) : 'taux non renseigné'}` : `${e.lines.length} ligne${e.lines.length > 1 ? 's' : ''}${e.cash ? ' + liquidités' : ''}`}</div>
       </div>
       <div style="text-align:right;flex:none">
         <div class="mono" style="font-size:15px;font-weight:500">${mEur0(e.value)}</div>
@@ -430,9 +400,9 @@ function screenAccueil(){
     </div>`;
   }).join('');
 
-  const la = compte('Livret A');
-  const part = t.patrimoine ? la.value / t.patrimoine * 100 : 0;
-  const versable = Math.max(0, PLAFOND_LIVRET_A - la.value);
+  // épargne de précaution : le plus gros livret réellement présent
+  const livret = comptes().map(compte).filter(e => e.garanti && !e.lines.length).sort((a, b) => b.value - a.value)[0];
+  const part = livret && t.patrimoine ? livret.value / t.patrimoine * 100 : 0;
 
   return `<div class="screen">
     <div class="card">
@@ -464,45 +434,40 @@ function screenAccueil(){
         <div class="row" style="margin-top:8px"><span style="font-size:13px;color:var(--mut)">Patrimoine</span><span class="mono" style="font-size:13px;font-weight:500">${mEur(p.val)}</span></div>
         <div class="row" style="margin-top:5px"><span style="font-size:13px;color:var(--mut)">Capital versé</span><span class="mono" style="font-size:13px;font-weight:500">${mEur(p.cap)}</span></div>
         <div class="row" style="margin-top:5px"><span style="font-size:13px;color:var(--mut)">Gains</span><span class="mono ${kls(gain)}" style="font-size:13px;font-weight:600">${mSEur(gain)}</span></div>
-        <div class="hint">Touche la courbe pour changer de mois</div>
-      </div>` : '<div class="empty">Historique en cours de constitution.</div>'}
+        <div class="hint">Touche la courbe pour changer de jour</div>
+      </div>` : '<div class="empty" style="padding:20px 8px">L\'historique se construit jour après jour, à chaque valorisation.</div>'}
 
       <div class="bar" style="height:34px;margin-top:16px">
         <div style="flex:${Math.max(1, t.capital)};background:var(--line2);display:flex;align-items:center;padding-left:12px"><span class="mono" style="font-size:12px;font-weight:500;white-space:nowrap">${mEur(t.capital)}</span></div>
         <div style="flex:${Math.max(1, Math.abs(t.pv))};background:${t.pv >= 0 ? 'var(--green)' : 'var(--red)'};display:flex;align-items:center;justify-content:center;min-width:54px"><span class="mono" style="font-size:11px;font-weight:600;color:#fff;white-space:nowrap">${state.hide ? '••' : sEur(t.pv)}</span></div>
       </div>
-      <div style="display:flex;gap:16px;margin-top:10px">
-        <div style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:var(--line2);border:1px solid var(--line);display:inline-block"></span><span style="font-size:12px;color:var(--mut)">Capital ${pctS(100 - (t.capital ? t.pv/t.capital*100 : 0))}</span></div>
-        <div style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:var(--green);display:inline-block"></span><span style="font-size:12px;color:var(--mut)">Gains ${pctS(t.capital ? t.pv/t.capital*100 : 0)}</span></div>
+      <div style="display:flex;gap:16px;margin-top:10px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:var(--line2);border:1px solid var(--line);display:inline-block"></span><span style="font-size:12px;color:var(--mut)">Capital versé</span></div>
+        <div style="display:flex;align-items:center;gap:6px"><span style="width:9px;height:9px;border-radius:2px;background:${t.pv >= 0 ? 'var(--green)' : 'var(--red)'};display:inline-block"></span><span style="font-size:12px;color:var(--mut)">${t.pv >= 0 ? 'Gains' : 'Pertes'} ${pctS(Math.abs(t.capital ? t.pv/t.capital*100 : 0))}</span></div>
       </div>
 
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line2)">
         <div><div style="font-size:11px;color:var(--mut2)">PV latentes</div><div class="mono ${kls(t.pv)}" style="font-size:15px;font-weight:500;margin-top:3px;white-space:nowrap">${mSEur(t.pv)}</div></div>
         <div><div style="font-size:11px;color:var(--mut2)">Dividendes</div><div class="mono pos" style="font-size:15px;font-weight:500;margin-top:3px;white-space:nowrap">${mSEur(divTotal())}</div></div>
-        <div><div style="font-size:11px;color:var(--mut2)">Ce mois</div><div class="mono" style="font-size:15px;font-weight:500;margin-top:3px;white-space:nowrap">${mSEur(t.epargneMois || 0)}</div></div>
+        <div><div style="font-size:11px;color:var(--mut2)">Versé ce mois</div><div class="mono" style="font-size:15px;font-weight:500;margin-top:3px;white-space:nowrap">${mSEur(t.epargneMois || 0)}</div></div>
       </div>
     </div>
 
-    <div class="card tight">${envCards || '<div class="empty">Aucune enveloppe.</div>'}</div>
+    <div class="card tight">${envCards || `<div class="empty">Aucune enveloppe pour l'instant.<br><span class="link" data-act="sheet" data-arg="1">Ajouter ma première ligne →</span></div>`}</div>
 
-    ${la.value ? `
+    ${livret && comptes().length > 1 ? `
     <div class="dark">
-      <div class="lbl" style="color:var(--mut3)">À surveiller</div>
-      <div style="font-size:17px;font-weight:400;letter-spacing:-.3px;margin-top:8px;line-height:1.35">${pctS(part)} de ton épargne dort sur un livret à ${la.taux ? pctS(la.taux) : '—'}</div>
-      <div style="font-size:13px;color:var(--mut3);line-height:1.55;margin-top:10px">${depensesMensuelles() ? `Ton épargne de précaution couvre ${matelas(la.value)}. ` : ''}Au-delà de quelques mois de dépenses, l'excédent perd du pouvoir d'achat dès que l'inflation dépasse le taux du livret.</div>
-      <div class="bar" style="height:34px;margin-top:16px">
-        ${comptes().map(n => {
-          const e = compte(n), col = e.garanti ? '#3f4652' : (n === 'PEA' ? '#0052ff' : '#05b169');
-          return `<div style="flex:${Math.max(1,e.value)};background:${col};display:flex;align-items:center;justify-content:center;padding:0 8px"><span class="mono" style="font-size:11px;font-weight:600;color:${col === '#05b169' ? '#0a0b0d' : '#fff'};white-space:nowrap">${e.garanti ? esc(n) + ' ' + pctS(part) : esc(abbr(n))}</span></div>`;
-        }).join('')}
-      </div>
+      <div class="lbl" style="color:var(--mut3)">Épargne de précaution</div>
+      <div style="font-size:17px;font-weight:400;letter-spacing:-.3px;margin-top:8px;line-height:1.35">${esc(livret.name)} représente ${pctS(part)} de ton patrimoine${livret.taux ? `, rémunéré à ${pctS(livret.taux)}` : ''}.</div>
+      <div style="font-size:13px;color:var(--mut3);line-height:1.55;margin-top:10px">${depensesMensuelles() ? `Il couvre ${matelas(livret.value)} de dépenses. ` : ''}Une épargne de précaution couvre en général 3 à 6 mois de dépenses.</div>
       <div style="display:flex;flex-direction:column;gap:9px;margin-top:14px">
-        ${comptes().map(n => `<div class="row"><span class="k">${esc(n)}</span><span class="v">${mEur(compte(n).value)}</span></div>`).join('')}
+        ${comptes().map(n => `<div class="row"><span class="k ell">${esc(n)}</span><span class="v">${mEur(compte(n).value)}</span></div>`).join('')}
       </div>
+      ${livret.plafond ? `
       <div class="row" style="margin-top:14px;padding-top:14px;border-top:1px solid #2a2f37">
-        <span class="k">Encore versable avant plafond</span><span class="v" style="font-weight:600">${mEur0(versable)}</span>
-      </div>
-      <button class="btn-w" data-act="env" data-arg="Livret A">Ouvrir le Livret A →</button>
+        <span class="k">Encore versable sur ${esc(livret.name)}</span><span class="v" style="font-weight:600">${mEur0(Math.max(0, livret.plafond - livret.value))}</span>
+      </div>` : ''}
+      <button class="btn-w" data-act="env" data-arg="${esc(livret.name)}">Ouvrir ${esc(livret.name)} →</button>
     </div>` : ''}
   </div>`;
 }
@@ -516,32 +481,35 @@ function divTotal(){
    Écran Portefeuille — mode Enveloppes
    ============================================================ */
 function modeEnveloppes(){
-  const name = comptes().includes(state.env) ? state.env : (comptes()[0] || '');
+  const list = comptes();
+  if (!list.length) return `<div class="card"><div class="empty">Aucune enveloppe pour l'instant.<br><span class="link" data-act="sheet" data-arg="1">Ajouter une ligne →</span></div></div>`;
+  const name = list.includes(state.env) ? state.env : list[0];
   const e = compte(name);
-  const garanti = !!e.garanti;
+  const garanti = !!e.garanti && !e.lines.length;
 
-  const chips = comptes().map(n => `<div class="chip${n === name ? ' on' : ''}" data-act="env" data-arg="${esc(n)}">${esc(n)}</div>`).join('');
+  const chips = list.map(n => `<div class="chip${n === name ? ' on' : ''}" data-act="env" data-arg="${esc(n)}">${esc(n)}</div>`).join('');
+  const byPct = [...e.lines].sort((a, b) => b.pct - a.pct);
 
   const stats = garanti
-    ? [['Capital garanti', mEur(e.value), 0], ['Intérêts estimés', e.interets ? mSEur(e.interets) : '—', 1],
-       ['Taux en vigueur', e.taux ? pctS(e.taux) : '—', 0], ['Matelas de sécurité', matelas(e.value), 0]]
+    ? [['Solde', mEur(e.value), 0], ['Intérêts estimés', e.interets ? mSEur(e.interets) : '—', 1],
+       ['Taux renseigné', e.taux ? pctS(e.taux) : '—', 0], ['Matelas de sécurité', matelas(e.value), 0]]
     : [['Mise', mEur(e.mise), 0],
        ['Dividendes ' + new Date().getFullYear(), mSEur(divFor(name)), 1],
-       ['Meilleure ligne', e.lines[0] ? `${e.lines[0].name.slice(0,18)} ${sPct(e.lines[0].pct)}` : '—', 1],
-       ['Moins bonne', e.lines.length > 1 ? `${e.lines[e.lines.length-1].name.slice(0,18)} ${sPct(e.lines[e.lines.length-1].pct)}` : '—', e.lines.length > 1 && e.lines[e.lines.length-1].pct < 0 ? -1 : 1]];
+       ['Meilleure ligne', byPct[0] ? `${byPct[0].name.slice(0,18)} ${sPct(byPct[0].pct)}` : '—', byPct[0] && byPct[0].pct < 0 ? -1 : 1],
+       ['Moins bonne', byPct.length > 1 ? `${byPct[byPct.length-1].name.slice(0,18)} ${sPct(byPct[byPct.length-1].pct)}` : '—', byPct.length > 1 && byPct[byPct.length-1].pct < 0 ? -1 : 1]];
 
-  const gauge = garanti
-    ? { label:'Plafond réglementaire', value:`${Math.round(e.value).toLocaleString('fr-FR')} / ${PLAFOND_LIVRET_A.toLocaleString('fr-FR')} €`, pct: e.value/PLAFOND_LIVRET_A*100 }
-    : (name === 'PEA'
-        ? { label:'Plafond de versement', value:`${Math.round(e.mise).toLocaleString('fr-FR')} / ${PLAFOND_PEA.toLocaleString('fr-FR')} €`, pct: e.mise/PLAFOND_PEA*100 }
-        : { label:'Antériorité fiscale', value:`${anciennete(name)} / 8 ans`, pct: anciennetePct(name, 8) });
+  const gauge = e.plafond
+    ? (garanti
+        ? { label:'Plafond réglementaire', value:`${Math.round(e.value).toLocaleString('fr-FR')} / ${e.plafond.toLocaleString('fr-FR')} €`, pct: e.value / e.plafond * 100 }
+        : { label:'Plafond de versement', value:`${Math.round(e.mise).toLocaleString('fr-FR')} / ${e.plafond.toLocaleString('fr-FR')} €`, pct: e.mise / e.plafond * 100 })
+    : (/assurance|vie|\bper\b/i.test(name) ? { label:'Antériorité fiscale', value:`${anciennete(name)} / 8 ans`, pct: anciennetePct(name, 8) } : null);
 
   const lines = e.lines.map(l => `
-    <div class="list-row">
+    <div class="list-row" data-act="editLine" data-arg="${(snap?.lines || []).indexOf(l)}">
       <div class="ava sm">${esc(abbr(l.name))}</div>
       <div class="grow">
         <div class="ell" style="font-size:14px;font-weight:500">${esc(l.name)}</div>
-        <div class="ell" style="font-size:12px;color:var(--mut2)">${esc([l.symbol || l.ticker, l.pru != null ? 'PRU ' + eur(l.pru) : '', l.live ? '' : 'cours différé'].filter(Boolean).join(' · '))}</div>
+        <div class="ell" style="font-size:12px;color:var(--mut2)">${esc([l.symbol || l.ticker, l.qty != null ? (l.qty.toLocaleString('fr-FR', { maximumFractionDigits:4 }) + ' × ' + eur(l.pru)) : '', l.manual ? 'non coté' : (l.live ? '' : 'cours différé')].filter(Boolean).join(' · '))}</div>
       </div>
       <div style="text-align:right;flex:none">
         <div class="mono" style="font-size:14px;font-weight:500">${mEur(l.value)}</div>
@@ -549,11 +517,12 @@ function modeEnveloppes(){
       </div>
     </div>`).join('');
 
-  const cash = e.cash ? `
-    <div class="list-row">
+  const showCash = e.cash || rawCash()[name] != null;
+  const cash = showCash ? `
+    <div class="list-row" data-act="editCash" data-arg="${esc(name)}">
       <div class="ava sm">€</div>
-      <div class="grow"><div style="font-size:14px;font-weight:500">Liquidités</div><div style="font-size:12px;color:var(--mut2)">Espèces disponibles</div></div>
-      <div style="text-align:right;flex:none"><div class="mono" style="font-size:14px;font-weight:500">${mEur(e.cash)}</div><div class="mono muted" style="font-size:12px;font-weight:600;margin-top:2px">—</div></div>
+      <div class="grow"><div style="font-size:14px;font-weight:500">Liquidités</div><div class="ell" style="font-size:12px;color:var(--mut2)">${rawCash()[name] == null ? esc(cashExplain(name)) : 'montant que tu as fixé'}</div></div>
+      <div style="text-align:right;flex:none"><div class="mono" style="font-size:14px;font-weight:500">${mEur(e.cash)}</div><div style="font-size:12px;font-weight:600;margin-top:2px;color:var(--blue)">Modifier</div></div>
     </div>` : '';
 
   return `
@@ -561,132 +530,92 @@ function modeEnveloppes(){
 
     <div class="card">
       <div style="display:flex;align-items:center;gap:12px">
-        <div class="ava" style="width:40px;height:40px;font-size:13px">${abbr(name)}</div>
-        <div class="grow"><div style="font-size:16px;font-weight:600">${esc(name)}</div><div class="ell" style="font-size:12px;color:var(--mut2)">${garanti ? 'Épargne de précaution' : e.lines.length + ' lignes'} · ${snap?.quotes?.provider && !garanti ? 'cotations ' + esc(snap.quotes.provider) : 'solde manuel'}</div></div>
+        <div class="ava" style="width:40px;height:40px;font-size:13px">${esc(abbr(name))}</div>
+        <div class="grow"><div class="ell" style="font-size:16px;font-weight:600">${esc(name)}</div><div class="ell" style="font-size:12px;color:var(--mut2)">${garanti ? 'Épargne disponible · solde saisi' : `${e.lines.length} ligne${e.lines.length > 1 ? 's' : ''} · ${snap?.live ? 'cotations en direct' : 'derniers cours connus'}`}</div></div>
       </div>
       <div class="mono" style="font-size:30px;font-weight:500;letter-spacing:-1px;margin-top:16px">${mEur(e.value)}</div>
       <div style="display:flex;align-items:center;gap:10px;margin-top:6px">
         <span class="badge ${garanti ? 'flat' : (e.pv >= 0 ? '' : 'down')}">${garanti ? 'Capital garanti' : (e.pv >= 0 ? '▲ ' : '▼ ') + sPct(e.pvPct).replace('+','')}</span>
         ${garanti ? '' : `<span class="mono ${kls(e.pv)}" style="font-size:13px;font-weight:500">${mSEur(e.pv)}</span>`}
       </div>
-      <div class="bar" style="height:8px;border-radius:4px;margin-top:16px">
-        <div style="flex:${Math.max(1, e.mise)};background:var(--line2)"></div>
-        ${e.pv ? `<div style="flex:${Math.max(4, Math.abs(e.pv))};background:${e.pv >= 0 ? 'var(--green)' : 'var(--red)'}"></div>` : ''}
-      </div>
       <div style="display:flex;flex-direction:column;gap:10px;margin-top:16px;padding-top:16px;border-top:1px solid var(--line2)">
         ${stats.map(s => `<div class="row"><span style="font-size:13px;color:var(--mut)">${esc(s[0])}</span><span class="mono ${s[2] === 1 ? 'pos' : (s[2] === -1 ? 'neg' : '')}" style="font-size:13px;font-weight:500;text-align:right">${esc(s[1])}</span></div>`).join('')}
       </div>
+      ${gauge ? `
       <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--line2)">
         <div class="row" style="margin-bottom:8px"><span style="font-size:12px;color:var(--mut2)">${gauge.label}</span><span class="mono" style="font-size:12px;font-weight:500;color:var(--mut)">${state.hide ? HIDDEN : gauge.value}</span></div>
         <div class="track"><div class="fill" style="width:${Math.max(1, Math.min(100, gauge.pct)).toFixed(1)}%"></div></div>
-      </div>
+      </div>` : ''}
+      ${garanti ? `<button class="btn-p" style="margin-top:16px" data-act="editBalance" data-arg="${esc(name)}">Mettre à jour le solde</button>` : ''}
     </div>
 
+    ${garanti ? '' : `
     <div class="card">
       <div class="row" style="align-items:baseline">
-        <div class="card-t">${garanti ? 'À savoir' : 'Lignes du portefeuille'}</div>
-        <span style="font-size:12px;color:var(--mut2)">${garanti ? "Exonéré d'impôt" : e.lines.length + ' lignes' + (e.cash ? ' + espèces' : '')}</span>
+        <div class="card-t">Lignes</div>
+        <span class="link" data-act="addTo" data-arg="${esc(name)}">+ Ajouter</span>
       </div>
       <div style="display:flex;flex-direction:column;margin-top:8px">
-        ${garanti
-          ? `<div class="list-row"><div class="ava sm">%</div><div class="grow"><div style="font-size:14px;font-weight:500">Intérêts par quinzaine</div><div style="font-size:12px;color:var(--mut2)">Versés au 31/12</div></div><div class="mono pos" style="font-size:14px;font-weight:500">${e.interets ? mSEur(e.interets) : '—'}</div></div>
-             <div class="list-row"><div class="ava sm">↑</div><div class="grow"><div style="font-size:14px;font-weight:500">Encore versable</div><div style="font-size:12px;color:var(--mut2)">Avant plafond</div></div><div class="mono" style="font-size:14px;font-weight:500">${mEur0(Math.max(0, PLAFOND_LIVRET_A - e.value))}</div></div>`
-          : (lines + cash) || '<div class="empty">Aucune ligne.</div>'}
+        ${(lines + cash) || '<div class="empty">Aucune ligne.</div>'}
       </div>
-    </div>`;
+      ${e.lines.length ? '<div class="hint">Touche une ligne pour la modifier ou la supprimer</div>' : ''}
+    </div>`}`;
 }
 
 function divFor(compteName){
+  const y = String(new Date().getFullYear());
   return (snap?.operations || [])
-    .filter(o => o.compte === compteName && o.type === 'Dividende' && o.date.startsWith(String(new Date().getFullYear())))
-    .reduce((s,o) => s + o.montant, 0);
+    .filter(o => o.compte === compteName && o.type === 'Dividende' && o.date.startsWith(y))
+    .reduce((s,o) => s + Math.abs(o.montant), 0);
 }
 
 /* ============================================================
-   Écran Portefeuille — mode Répartition
+   Écran Portefeuille — mode Répartition (calculée sur tes lignes)
    ============================================================ */
-function allocRows(){
-  const a = snap?.allocation || { titre:[], classe:[] };
-  if (state.tab === 'secteur') return SECTEURS[state.scope] || [];
-  if (state.scope === 'Tout') return state.tab === 'classe' ? a.classe : a.titre;
+const REP_TABS = [['titre','Lignes'],['classe','Classes'],['env','Enveloppes'],['pays','Pays']];
 
-  const c = compte(state.scope);
-  const lines = c.lines.map(l => [l.name, l.value, l.classe]);
-  if (c.cash) lines.push(['Liquidités', c.cash, 'Liquidités']);
-  if (state.tab === 'classe'){
-    const by = {};
-    for (const [, v, k] of lines) by[k] = (by[k] || 0) + v;
-    return Object.entries(by).sort((x,y) => y[1] - x[1]).map(([k,v]) => [k, Math.round(v*100)/100]);
+function allocRows(){
+  const a = snap?.allocation || { titre:[], classe:[], pays:[], parEnveloppe:[] };
+  if (state.scope === 'Tout') {
+    if (state.tab === 'classe') return a.classe;
+    if (state.tab === 'env') return a.parEnveloppe;
+    if (state.tab === 'pays') return a.pays || [];
+    return a.titre;
   }
-  return lines.map(([n,v]) => [n,v]).sort((x,y) => y[1] - x[1]);
+  const c = compte(state.scope);
+  const lines = c.lines.map(l => [l.name, l.value, l.classe, window.PatrimoineCore.paysOf(l)]);
+  if (c.cash) lines.push(['Liquidités', c.cash, 'Liquidités', 'Liquidités']);
+  if (c.balance) lines.push([c.name, c.balance, 'Épargne garantie', 'Épargne garantie']);
+  const group = col => {
+    const by = {};
+    for (const r of lines) by[r[col]] = (by[r[col]] || 0) + r[1];
+    return Object.entries(by).map(([k, v]) => [k, Math.round(v*100)/100]).filter(r => r[1] > 0).sort((x,y) => y[1] - x[1]);
+  };
+  if (state.tab === 'classe') return group(2);
+  if (state.tab === 'pays') return group(3);
+  return lines.map(r => [r[0], r[1]]).filter(r => r[1] > 0).sort((x,y) => y[1] - x[1]);
+}
+
+function repNote(rows, total){
+  if (!rows.length) return '';
+  if (state.tab === 'pays') return 'Pays déduit du code ISIN : pays de la société pour une action, pays de domiciliation pour un fonds (sa composition réelle n\'est pas connue).';
+  const pc = rows[0][1] / total * 100;
+  const warn = state.tab === 'titre' && rows.length > 1 && pc > 25 ? ' Forte concentration sur un seul actif.' : '';
+  return `« ${esc(rows[0][0])} » pèse ${pctS(pc)} du total.${warn}`;
 }
 
 function modeRepartition(){
+  const scopes = ['Tout', ...comptes().filter(n => compte(n).value > 0)];
+  if (!scopes.includes(state.scope)) state.scope = 'Tout';
+  if (state.scope !== 'Tout' && state.tab === 'env') state.tab = 'titre';
   const rows = allocRows();
   const total = rows.reduce((s,r) => s + r[1], 0) || 1;
-  const sh = state.seg;
-  const meta = EXPO_META[state.scope];
+  const sh = state.seg != null && state.seg < rows.length ? state.seg : null;
 
-  const scopes = ['Tout','PEA','Assurance Vie'];
-  const segbar = `<div class="segbar">${scopes.map(s =>
-    `<div class="seg${state.scope === s ? ' on' : ''}" data-act="scope" data-arg="${esc(s)}">${s === 'Assurance Vie' ? 'Assur. Vie' : s}</div>`).join('')}</div>`;
-  const tabs = `<div class="chips" style="gap:6px">${[['titre','Lignes'],['secteur','Secteurs'],['classe','Classes'],['expo','Doublons'],['geo','Pays']]
-    .map(([v,l]) => `<div class="chip${state.tab === v ? ' on' : ''}" data-act="tab" data-arg="${v}">${l}</div>`).join('')}</div>`;
-
-  if (state.tab === 'geo'){
-    // Exposition géographique : page autonome en iframe, qui remonte sa hauteur réelle.
-    const scopeParam = state.scope === 'PEA' ? 'PEA' : (state.scope === 'Assurance Vie' ? 'AV' : 'Tout');
-    return `${segbar}${tabs}
-      <div class="card">
-        <iframe id="geo" src="/m/world-exposure.html?scope=${scopeParam}" title="Exposition géographique"
-                style="width:100%;height:${geoHeight}px;border:0;display:block"></iframe>
-      </div>`;
-  }
-
-  if (state.tab === 'expo'){
-    const denom = state.scope === 'Tout' ? (T().patrimoine || 1) : (compte(state.scope).value || 1);
-    const list = (EXPO[state.scope] || []).map(r => {
-      const tot = r[1] + r[2], pc = tot / denom * 100;
-      return `
-      <div style="padding:14px 0;border-bottom:1px solid var(--bg)">
-        <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
-          <span style="font-size:14px;font-weight:600">${esc(r[0])}</span>
-          <span class="mono" style="font-size:14px;font-weight:600;flex:none;color:${pc >= 5 ? 'var(--red)' : 'var(--ink)'}">${pctS(Math.round(pc*10)/10)}</span>
-        </div>
-        <div class="bar" style="height:5px;border-radius:3px;margin-top:8px"><div style="flex:${Math.max(r[1],0.5)};background:var(--ink)"></div><div style="flex:${Math.max(r[2],0.5)};background:var(--mut3)"></div></div>
-        <div class="row" style="margin-top:8px">
-          <span class="ell" style="font-size:12px;color:var(--mut2)">${esc(r[3])}</span>
-          <span class="mono" style="font-size:12px;font-weight:600;flex:none">${mEur(tot)}</span>
-        </div>
-      </div>`;
-    }).join('');
-
-    return `${segbar}${tabs}
-      <div class="alert">
-        <div class="bang">!</div>
-        <div>
-          <div style="font-size:14px;font-weight:600;line-height:1.35">${esc(meta.title)}</div>
-          <div style="font-size:13px;color:var(--mut);line-height:1.55;margin-top:4px">${esc(meta.body)}</div>
-        </div>
-      </div>
-      <div class="card">
-        <div class="card-t">Sous-jacents cumulés</div>
-        <div style="font-size:12px;color:var(--mut2);margin-top:3px">ETF décomposés, doublons inclus</div>
-        <div style="display:flex;flex-direction:column;margin-top:10px">${list}</div>
-        <div style="display:flex;flex-direction:column;gap:12px;margin-top:16px">
-          <div style="border:1px solid var(--line);border-radius:14px;padding:16px">
-            <div style="font-size:12px;color:var(--mut2)">Chevauchement entre supports</div>
-            <div class="mono" style="font-size:22px;font-weight:500;margin-top:4px">${meta.overlap}</div>
-            <div style="font-size:13px;color:var(--mut);line-height:1.55;margin-top:6px">${esc(meta.overlapNote)}</div>
-          </div>
-          <div style="border:1px solid var(--line);border-radius:14px;padding:16px">
-            <div style="font-size:12px;color:var(--mut2)">Poids des 5 premières positions</div>
-            <div class="mono" style="font-size:22px;font-weight:500;margin-top:4px">${meta.top5}</div>
-            <div style="height:6px;border-radius:3px;background:var(--line3);margin-top:10px"><div style="width:${Math.min(100,meta.top5Bar)}%;height:100%;border-radius:3px;background:${meta.top5Bar > 60 ? 'var(--red)' : 'var(--blue)'}"></div></div>
-          </div>
-        </div>
-      </div>`;
-  }
+  const segbar = `<div class="chips">${scopes.map(s =>
+    `<div class="chip${state.scope === s ? ' on' : ''}" data-act="scope" data-arg="${esc(s)}">${esc(s)}</div>`).join('')}</div>`;
+  const tabs = `<div class="segbar">${REP_TABS.filter(([v]) => !(v === 'env' && state.scope !== 'Tout'))
+    .map(([v,l]) => `<div class="seg${state.tab === v ? ' on' : ''}" data-act="tab" data-arg="${v}">${l}</div>`).join('')}</div>`;
 
   let cum = 0;
   const segs = rows.map((r,i) => {
@@ -696,6 +625,8 @@ function modeRepartition(){
       dash: Math.max(0.1, pc - 0.5).toFixed(2) + ' ' + (100 - pc + 0.5).toFixed(2),
       off:(25 - start).toFixed(2), label:r[0], pct:pctS(Math.round(pc*10)/10), amount:mEur0(r[1]), active };
   });
+
+  if (!rows.length) return `${segbar}${tabs}<div class="card"><div class="empty">Aucune ligne à répartir pour l'instant.</div></div>`;
 
   return `${segbar}${tabs}
     <div class="card">
@@ -717,9 +648,9 @@ function modeRepartition(){
             <span class="ell" style="font-size:14px;font-weight:500;flex:1;min-width:0">${esc(s.label)}</span>
             <span class="mono" style="font-size:13px;font-weight:600;flex:none">${s.pct}</span>
             <span class="mono" style="font-size:12px;color:var(--mut2);width:74px;text-align:right;flex:none">${s.amount}</span>
-          </div>`).join('') || '<div class="empty">Aucune ligne.</div>'}
+          </div>`).join('')}
       </div>
-      <div class="note">${NOTES[state.scope][state.tab]}</div>
+      <div class="note">${repNote(rows, total)}</div>
     </div>`;
 }
 
@@ -738,28 +669,32 @@ function screenPortefeuille(){
    ============================================================ */
 function screenOps(){
   const all = snap?.operations || [];
+  const chipsList = ['Tous', ...new Set(all.map(o => o.compte))];
+  if (!chipsList.includes(state.filt)) state.filt = 'Tous';
   const list = all.filter(o => state.filt === 'Tous' || o.compte === state.filt);
-  const chips = ['Tous', ...new Set(all.map(o => o.compte))]
+  const chips = chipsList
     .map(c => `<div class="chip${state.filt === c ? ' on' : ''}" data-act="filt" data-arg="${esc(c)}">${esc(c)}</div>`).join('');
 
   const rows = list.map(o => {
     const gain = o.type === 'Dividende';
     return `
-    <div class="list-row">
+    <div class="list-row" data-act="opMenu" data-arg="${o.idx}">
       <div class="ava" style="background:${gain ? 'var(--green-bg)' : 'var(--line2)'};color:${gain ? 'var(--green)' : 'var(--mut)'};width:36px;height:36px;font-size:15px">${OPICON[o.type] || '·'}</div>
       <div class="grow">
         <div class="ell" style="font-size:14px;font-weight:500">${esc(o.libelle)}</div>
-        <div style="font-size:12px;color:var(--mut2)">${o.dateFr || frDate(o.date)} · ${esc(o.compte)}</div>
+        <div class="ell" style="font-size:12px;color:var(--mut2)">${o.dateFr || frDate(o.date)} · ${esc(o.compte)} · ${esc(o.type)}</div>
       </div>
-      <span class="mono ${gain ? 'pos' : ''}" style="font-size:14px;font-weight:500;white-space:nowrap;flex:none">${state.hide ? HIDDEN : sEur(o.montant)}</span>
+      <span class="mono ${gain ? 'pos' : ''}" style="font-size:14px;font-weight:500;white-space:nowrap;flex:none">${state.hide ? HIDDEN : sEur(opAmount(o))}</span>
     </div>`;
   }).join('');
 
   const imports = snap?.imports || [];
 
   return `<div class="screen">
-    <div class="chips">${chips}</div>
+    ${chipsList.length > 2 ? `<div class="chips">${chips}</div>` : ''}
+    <button class="btn-s" data-act="addOp">+ Ajouter une opération</button>
     <div class="card tight">${rows || '<div class="empty">Aucune opération pour ce filtre.</div>'}</div>
+    ${rows ? '<div class="hint" style="margin:-4px 4px 0">Touche une opération pour la supprimer</div>' : ''}
     <div class="card">
       <div class="card-t">Derniers imports</div>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:12px">
@@ -768,58 +703,120 @@ function screenOps(){
             <div class="grow"><div class="ell" style="font-size:14px;font-weight:500">${esc(i.file)}</div><div style="font-size:11px;color:var(--mut2)">${new Date(i.at).toLocaleDateString('fr-FR')} · ${esc(i.kind)}</div></div>
             <span class="mono ${i.ok ? 'pos' : 'neg'}" style="font-size:12px;flex:none">${i.ok ? '✓' : '✕'} ${i.rows}</span>
           </div>`).join('') : '<div class="empty">Aucun import.</div>'}
-        <div data-act="sheet" data-arg="1" style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:14px;padding:13px 14px;cursor:pointer">
+        <div data-act="sheetFile" style="display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:14px;padding:13px 14px;cursor:pointer">
           <div style="display:flex;align-items:center;gap:10px"><div class="ava sm">+</div><div><div style="font-size:14px;font-weight:500">Importer un fichier</div><div style="font-size:11px;color:var(--mut2)">CSV ou XLSX</div></div></div>
           <span style="font-size:13px;font-weight:600;color:var(--blue)">Ouvrir</span>
         </div>
       </div>
     </div>
     <div class="card">
+      <div class="card-t">Réglages</div>
+      <div class="list-row" data-act="editExpenses">
+        <div class="grow"><div style="font-size:14px;font-weight:500">Dépenses mensuelles</div><div style="font-size:12px;color:var(--mut2)">Pour calculer ton matelas de sécurité</div></div>
+        <span class="mono" style="font-size:13px;flex:none">${depensesMensuelles() ? eur0(depensesMensuelles()) : 'à renseigner'}</span>
+      </div>
+    </div>
+    <div class="card">
       <div class="card-t">Compte</div>
       <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;gap:10px">
         <div class="grow"><div class="ell" style="font-size:14px;font-weight:500">${esc(state.user?.email || '')}</div><div style="font-size:11px;color:var(--mut2)">Connecté</div></div>
-        <span style="font-size:13px;font-weight:600;color:var(--red);cursor:pointer;flex:none" data-act="signOut">Se déconnecter</span>
+        <button class="linkbtn danger" data-act="signOut">Se déconnecter</button>
       </div>
     </div>
   </div>`;
 }
 
 /* ============================================================
-   Bottom sheet d'import
+   Feuille d'ajout : saisie manuelle ou import
    ============================================================ */
 function reportBox(){
-  if (state.importing) return `<div class="report busy"><span class="spin"></span>Import en cours…</div>`;
+  if (state.importing) return `<div class="report busy"><span class="spin"></span>Enregistrement…</div>`;
   const r = state.report;
   if (!r) return '';
-  if (r.error) return `<div class="report err"><strong>Import refusé.</strong><br>${esc(r.error)}</div>`;
+  const offlineNote = r.pending ? ' · enregistré sur ce téléphone, synchronisé au retour du réseau' : '';
+  if (r.error) return `<div class="report err" role="alert"><strong>${esc(r.title || 'Enregistrement impossible')}.</strong><br>${esc(r.error)}</div>`;
+  if (r.message) return `<div class="report ok" role="status">${esc(r.message)}${offlineNote}.</div>`;
   const d = r.report;
   const detail = d.kind === 'operations'
     ? `${d.added} opération(s) ajoutée(s)${d.duplicates ? `, ${d.duplicates} doublon(s) ignoré(s)` : ''}`
     : `${d.added} ligne(s) ajoutée(s), ${d.updated} mise(s) à jour${d.removed ? `, ${d.removed} soldée(s)` : ''}`;
-  return `<div class="report ok"><strong>${esc(d.file)} importé.</strong><br>${detail} · portefeuille revalorisé.</div>`;
+  return `<div class="report ok" role="status"><strong>${esc(d.file)} importé.</strong><br>${detail}${d.skipped ? ` · ${d.skipped} ligne(s) ignorée(s)` : ''}${offlineNote}.</div>`;
 }
 
-function sheet(){
-  if (!state.sheet) return '';
+function saisieForm(){
+  const ed = state.editing;
+  const compteVal = ed?.compte || state.formCompte || 'PEA';
+  const all = [...new Set([...comptes(), ...BASE_COMPTES, compteVal])];
+  const solde = isSoldeCompte(compteVal);
+  const today = new Date().toISOString().slice(0,10);
+  const fr = n => n == null || n === '' ? '' : String(n).replace('.', ',');
+  const cur = snap?.comptes?.[compteVal];
+
   return `
-  <div class="sheet-bg" data-act="sheet" data-arg="0">
-    <div class="sheet" data-act="stop">
-      <div class="grab"></div>
-      <div>
-        <div style="font-size:20px;font-weight:600;letter-spacing:-.3px">Importer des données</div>
-        <div style="font-size:13px;color:var(--mut);margin-top:3px">CSV ou export XLSX — opérations ou positions</div>
+    <div>
+      <div class="lbl" style="margin-bottom:8px">Enveloppe</div>
+      <div class="chips" style="flex-wrap:wrap">
+        ${all.map(c => `<div class="chip${c === compteVal ? ' on' : ''}" data-act="formCompte" data-arg="${esc(c)}">${esc(c)}</div>`).join('')}
+        <div class="chip" style="color:var(--blue)" data-act="newCompte">+ Autre</div>
       </div>
-      ${reportBox()}
+    </div>
+    <form id="posForm" novalidate data-epoch="${formEpoch}">
+      ${solde ? `
+      <div class="field"><label for="pSolde">Solde actuel de ${esc(compteVal)} *</label>
+        <input id="pSolde" type="text" inputmode="decimal" placeholder="ex. 6 681,68" value="${fr(cur?.balance)}" autocomplete="off"></div>
+      <div class="field"><label for="pTaux">Taux annuel (%) — facultatif</label>
+        <input id="pTaux" type="text" inputmode="decimal" placeholder="ex. 2,4" value="${fr(cur?.taux)}" autocomplete="off"></div>` : `
+      <div class="field"><label for="pName">Nom ou code ISIN *</label>
+        <input id="pName" placeholder="Air Liquide · ou FR0000120073" value="${ed ? esc(ed.name || ed.isin || '') : ''}" autocomplete="off" maxlength="120"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label for="pQty">Quantité *</label>
+          <input id="pQty" type="text" inputmode="decimal" placeholder="ex. 4" value="${ed ? fr(ed.qty) : ''}" autocomplete="off"></div>
+        <div class="field"><label for="pPru">Prix d'achat (€) *</label>
+          <input id="pPru" type="text" inputmode="decimal" placeholder="ex. 168,40" value="${ed ? fr(ed.pru) : ''}" autocomplete="off"></div>
+      </div>
+      <div class="field"><label for="pDate">Date d'achat</label>
+        <input id="pDate" type="date" max="${today}" value="${ed ? (ed.buyDate || '') : today}"></div>
+      <div class="hint" style="margin:-4px 0 12px">Avec un code ISIN ou un ticker (ex. AI), le cours est mis à jour automatiquement.</div>`}
+      <button type="submit" class="btn-p" ${state.importing ? 'disabled' : ''}>${state.importing ? '<span class="spin"></span>' : ''}${ed ? 'Enregistrer les modifications' : (solde ? 'Enregistrer le solde' : 'Ajouter la ligne')}</button>
+      ${ed ? `
+      <div style="display:flex;gap:10px;margin-top:10px">
+        <button type="button" class="btn-s" style="flex:1" data-act="cancelEdit">Annuler</button>
+        <button type="button" class="btn-s danger" style="flex:1" data-act="delEditing">Supprimer la ligne</button>
+      </div>` : ''}
+    </form>`;
+}
+
+function fichierPanel(){
+  return `
       <div class="drop" data-act="pick" data-drop="1">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none"><path d="M12 16V4M12 4L7.5 8.5M12 4l4.5 4.5M4 16v3a1 1 0 001 1h14a1 1 0 001-1v-3" stroke="#0052ff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         <div style="font-size:15px;font-weight:600">Choisir un fichier</div>
-        <div style="font-size:12px;color:var(--mut)">CSV, TSV ou XLSX · 10 Mo max</div>
+        <div style="font-size:12px;color:var(--mut)">CSV, TSV ou XLSX · 10 Mo max · colonnes reconnues automatiquement</div>
       </div>
       <div class="code">
         <div style="color:var(--ink);font-weight:600">Date;Compte;Type;Montant;Ticker</div>
         <div>2026-07-17;PEA;ACHAT;-516,56;SU</div>
+      </div>`;
+}
+
+function sheet(){
+  if (!state.sheet) return '';
+  const saisie = state.sheetTab === 'saisie';
+  return `
+  <div class="sheet-bg" data-act="sheet" data-arg="0">
+    <div class="sheet" data-act="stop" role="dialog" aria-modal="true" aria-label="Ajouter des données">
+      <div class="grab"></div>
+      <div class="row" style="align-items:center">
+        <div style="font-size:20px;font-weight:600;letter-spacing:-.3px">${state.editing ? 'Modifier la ligne' : 'Ajouter'}</div>
+        <button class="icon-btn" data-act="sheet" data-arg="0" aria-label="Fermer">✕</button>
       </div>
-      <button class="btn-p" data-act="sheet" data-arg="0">Fermer</button>
+      ${state.editing ? '' : `
+      <div class="segbar">
+        <div class="seg${saisie ? ' on' : ''}" data-act="sheetTab" data-arg="saisie">Saisie</div>
+        <div class="seg${saisie ? '' : ' on'}" data-act="sheetTab" data-arg="fichier">Fichier</div>
+      </div>`}
+      ${reportBox()}
+      ${saisie ? saisieForm() : fichierPanel()}
     </div>
   </div>`;
 }
@@ -850,32 +847,62 @@ const SCREENS = { accueil:screenAccueil, portefeuille:screenPortefeuille, ops:sc
 const app = document.getElementById('app');
 const picker = document.getElementById('picker');
 
-function render(){
-  if (state.user === undefined){
-    app.innerHTML = `<div class="auth-shell"><div class="empty"><span class="spin"></span>Chargement…</div></div>`;
-    return;
+/* Les valeurs saisies survivent aux rafraîchissements de l'écran (cotation
+   qui arrive pendant la saisie…). `formEpoch` change quand le formulaire doit
+   repartir de zéro. */
+let formEpoch = 0;
+function captureInputs(){
+  // époque du formulaire AFFICHÉ : si elle a changé depuis, la saisie ne doit pas revenir
+  const shown = app.querySelector('form[data-epoch]');
+  const kept = { epoch: shown ? Number(shown.dataset.epoch) : formEpoch, vals:{}, focus:null };
+  app.querySelectorAll('form input[id]').forEach(el => { kept.vals[el.id] = el.value; });
+  const a = document.activeElement;
+  if (a?.id && app.contains(a)) kept.focus = { id:a.id, s:a.selectionStart, e:a.selectionEnd };
+  return kept;
+}
+function restoreInputs(kept){
+  if (kept.epoch !== formEpoch) return;
+  for (const [id, v] of Object.entries(kept.vals)) {
+    const el = document.getElementById(id);
+    if (el && app.contains(el) && el.value !== v) el.value = v;
   }
+  if (kept.focus) {
+    const el = document.getElementById(kept.focus.id);
+    if (el && app.contains(el)) {
+      el.focus({ preventScroll:true });
+      try { if (kept.focus.s != null) el.setSelectionRange(kept.focus.s, kept.focus.e); } catch { /* type date */ }
+    }
+  }
+}
+
+function render(){
+  if (state.user === undefined){ UI.loading(app); return; }
   if (state.user === null){
-    app.innerHTML = authScreen();
-    wireAuthForm();
+    if (!app.querySelector('.pk-auth')) UI.mountAuth(app);
     return;
   }
   if (!snap){
     app.innerHTML = `<div class="auth-shell"><div class="card auth-card">${
       dataError
-        ? `<div class="card-t">Connexion aux données impossible</div><div style="font-size:13px;color:var(--mut);margin-top:6px">${esc(dataError)}</div><button class="btn-p" style="margin-top:16px" data-act="retryData">Réessayer</button>`
+        ? `<div class="card-t">Connexion aux données impossible</div><div style="font-size:13px;color:var(--mut);margin-top:6px;line-height:1.5">${esc(dataError)}</div>
+           <button class="btn-p" style="margin-top:16px" data-act="retryData">Réessayer</button>
+           <button class="btn-s" style="margin-top:10px" data-act="signOut">Se déconnecter</button>`
         : `<div class="empty"><span class="spin"></span>Chargement du portefeuille…</div>`
     }</div></div>`;
-    app.querySelector('[data-act="retryData"]')?.addEventListener('click', subscribeData);
     return;
   }
   const scroll = app.querySelector('main')?.scrollTop || 0;
-  app.innerHTML = header() + `<main>${SCREENS[state.screen]()}</main>` + nav() + sheet();
+  const sheetScroll = app.querySelector('.sheet')?.scrollTop || 0;
+  const kept = captureInputs();
+  app.innerHTML = header()
+    + (dataError ? `<div class="report err" style="margin:10px 16px 0">${esc(dataError)} <span class="link" data-act="retryData">Réessayer</span></div>` : '')
+    + `<main>${SCREENS[state.screen]()}</main>` + nav() + sheet();
   const m = app.querySelector('main');
   if (m) m.scrollTop = scroll;
-
-  const geoFrame = document.getElementById('geo');
-  if (geoFrame) observeGeo(geoFrame);
+  const sh = app.querySelector('.sheet');
+  if (sh) sh.scrollTop = sheetScroll;
+  restoreInputs(kept);
+  wirePositionForm();
 
   app.querySelectorAll('[data-drop]').forEach(el => {
     el.addEventListener('dragover', e => { e.preventDefault(); el.classList.add('over'); });
@@ -888,65 +915,63 @@ function render(){
   });
 }
 
-/* ---------- écran de connexion ---------- */
-function authScreen(){
-  const signup = state.authMode === 'signup';
-  return `
-  <div class="auth-shell">
-    <div class="auth-card">
-      <div class="auth-brand"><div class="brand-mark" style="width:32px;height:32px;border-radius:9999px;background:var(--blue);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;font-weight:700">P</div><div style="font-size:18px;font-weight:600">Patrimoine</div></div>
-      <div class="card-t" style="margin-bottom:4px">${signup ? 'Créer un compte' : 'Connexion'}</div>
-      <div style="font-size:13px;color:var(--mut2);margin-bottom:20px">${signup ? 'Ton portefeuille te suit sur tous tes appareils.' : 'Retrouve ton portefeuille où que tu sois.'}</div>
-      ${state.authError ? `<div class="auth-error">${esc(state.authError)}</div>` : ''}
-      <form id="authForm">
-        <div class="field"><label for="authEmail">E-mail</label><input id="authEmail" type="email" autocomplete="email" required></div>
-        <div class="field"><label for="authPassword">Mot de passe</label><input id="authPassword" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="6" required></div>
-        <button type="submit" class="btn-p" ${state.authBusy ? 'disabled' : ''}>${state.authBusy ? '<span class="spin"></span>' : ''}${signup ? 'Créer mon compte' : 'Se connecter'}</button>
-      </form>
-      <div class="divider">ou</div>
-      <button id="authGoogle" class="btn-google" type="button" ${state.authBusy ? 'disabled' : ''}>
-        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.09-1.79 2.73v2.27h2.9c1.7-1.56 2.68-3.87 2.68-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.27c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.34C2.44 16.02 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.95 10.69A5.4 5.4 0 013.68 9c0-.59.1-1.16.27-1.69V4.97H.96A9 9 0 000 9c0 1.45.35 2.83.96 4.03l2.99-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.44 1.98.96 4.97l2.99 2.34C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
-        Continuer avec Google
-      </button>
-      <div class="auth-alt">
-        ${signup ? 'Déjà un compte ?' : 'Pas encore de compte ?'}
-        <span class="link" style="cursor:pointer" data-act="authToggle">${signup ? 'Se connecter' : "S'inscrire"}</span>
-      </div>
-      ${!signup ? `<div class="auth-alt"><span class="link" style="cursor:pointer" data-act="authForgot">Mot de passe oublié ?</span></div>` : ''}
-    </div>
-  </div>`;
-}
-
-function wireAuthForm(){
-  app.querySelector('#authForm')?.addEventListener('submit', async e => {
+function wirePositionForm(){
+  const form = app.querySelector('#posForm');
+  if (!form) return;
+  form.addEventListener('submit', async e => {
     e.preventDefault();
-    const email = app.querySelector('#authEmail').value.trim();
-    const password = app.querySelector('#authPassword').value;
-    set({ authBusy:true, authError:null });
-    try {
-      if (state.authMode === 'signup') await window.PatrimoineAuth.signUp(email, password);
-      else await window.PatrimoineAuth.signIn(email, password);
-    } catch (e2) {
-      state.authError = e2.message;
-    } finally {
-      set({ authBusy:false });
+    if (state.importing) return;
+    const v = id => app.querySelector('#' + id)?.value ?? '';
+    const num = window.PatrimoineCore.num;
+    const ed = state.editing;
+    const compte = ed?.compte || state.formCompte || 'PEA';
+    const solde = isSoldeCompte(compte);
+    const saisie = solde
+      ? { montant: num(v('pSolde')), taux: v('pTaux').trim() === '' ? null : num(v('pTaux')) }
+      : { nameOrIsin: v('pName').trim(), qty: num(v('pQty')), pru: num(v('pPru')), date: v('pDate') };
+    // identifiant inchangé lors d'une modification : on garde nom, ISIN et ticker
+    // d'origine (sinon l'ISIN, qui sert à la cotation, serait perdu)
+    if (!solde && ed && [ed.name, ed.isin, ed.ticker].includes(saisie.nameOrIsin)) {
+      Object.assign(saisie, { name: ed.name, isin: ed.isin || '', ticker: ed.ticker || '' });
     }
-  });
-  app.querySelector('#authGoogle')?.addEventListener('click', async () => {
-    set({ authBusy:true, authError:null });
-    try { await window.PatrimoineAuth.signInGoogle(); }
-    catch (e) { state.authError = e.message; }
-    finally { set({ authBusy:false }); }
+
+    const fail = (msg, id) => { state.report = { error:msg, title:'Vérifie ta saisie' }; render(); app.querySelector('#' + id)?.focus(); };
+    if (solde) {
+      if (saisie.montant == null || saisie.montant < 0) return fail('Indique le solde en euros (ex. 6 681,68).', 'pSolde');
+      if (v('pTaux').trim() !== '' && (saisie.taux == null || saisie.taux < 0 || saisie.taux > 20)) return fail('Taux invalide : entre 0 et 20 (ex. 2,4).', 'pTaux');
+    } else {
+      if (!saisie.nameOrIsin) return fail('Indique le nom ou le code ISIN de la ligne.', 'pName');
+      if (saisie.qty == null || saisie.qty <= 0) return fail('Indique une quantité supérieure à 0 (ex. 4 ou 0,5).', 'pQty');
+      if (saisie.pru == null || saisie.pru < 0) return fail('Indique le prix d\'achat unitaire (ex. 168,40).', 'pPru');
+    }
+
+    set({ importing:true, report:null });
+    try {
+      if (solde) {
+        await window.PatrimoineData.updateBalance(compte, saisie.montant, saisie.taux);
+        state.report = { message:`Solde de ${compte} enregistré` };
+      } else {
+        const res = await window.PatrimoineData.savePosition({ ...saisie, compte, replaces: ed?.name });
+        state.report = { message:`${res.name} ${res.created ? 'ajoutée' : 'mise à jour'}`, pending:res.pending };
+      }
+      if (ed) { state.editing = null; state.sheet = false; UI.toast(state.report.message, 'ok'); }
+      formEpoch++;
+    } catch (e2) {
+      state.report = { error:e2.message };
+    } finally {
+      set({ importing:false });
+      render();
+    }
   });
 }
 
 async function upload(file){
-  set({ importing:true, report:null });
+  set({ importing:true, report:null, sheet:true, sheetTab:'fichier' });
   try {
-    const res = await window.PatrimoineData.importFile(file);
-    state.report = res;
+    state.report = await window.PatrimoineData.importFile(file);
+    UI.toast(`${file.name} importé`, 'ok');
   } catch (e) {
-    state.report = { error:e.message };
+    state.report = { error:e.message, title:'Import refusé' };
   } finally {
     set({ importing:false });
     render();
@@ -959,8 +984,16 @@ picker.addEventListener('change', () => {
   if (f) upload(f);
 });
 
+const parseAmount = (raw, { allowEmpty = false } = {}) => {
+  if (allowEmpty && String(raw).trim() === '') return null;
+  const n = window.PatrimoineCore.num(raw);
+  if (n == null || n < 0 || n > 1e10) throw new Error('Montant invalide : indique un nombre positif (ex. 1 250,50).');
+  return n;
+};
+const frNum = n => n == null ? '' : String(n).replace('.', ',');
+
 const ACTIONS = {
-  screen: v => set({ screen:v, seg:null }),
+  screen: v => set({ screen:v, seg:null, hov:null }),
   mode:   v => set({ mode:v, seg:null }),
   env:    v => set({ screen:'portefeuille', mode:'env', env:v }),
   scope:  v => set({ scope:v, seg:null }),
@@ -968,37 +1001,135 @@ const ACTIONS = {
   filt:   v => set({ filt:v }),
   seg:    v => set({ seg: state.seg === Number(v) ? null : Number(v) }),
   hov:    v => set({ hov:Number(v) }),
-  sheet:  v => set({ sheet:v === '1', report:null }),
+  sheet:  v => { formEpoch++; set({ sheet:v === '1', report:null, editing:null }); },
+  sheetFile: () => { formEpoch++; set({ sheet:true, sheetTab:'fichier', report:null, editing:null }); },
+  sheetTab: v => set({ sheetTab:v, report:null }),
+  addTo:  name => { formEpoch++; set({ sheet:true, sheetTab:'saisie', formCompte:name, editing:null, report:null }); },
+  formCompte: v => { formEpoch++; set({ formCompte:v, report:null }); },
+  newCompte: async () => {
+    const r = await UI.dialog({
+      title:'Nouvelle enveloppe', message:'Nom de l\'enveloppe (ex. CTO, PER, PEA-PME, Livret Jeune…).',
+      fields:[{ name:'nom', label:'Nom', placeholder:'ex. CTO' }], confirmLabel:'Utiliser',
+      validate: v => v.nom.trim() ? null : 'Indique un nom.'
+    });
+    if (r) { formEpoch++; set({ formCompte: window.PatrimoineCore.normCompte(r.nom.trim()), report:null }); }
+  },
+  cancelEdit: () => { formEpoch++; set({ editing:null, sheet:false, report:null }); },
   pick:   () => picker.click(),
-  retryData: subscribeData,
+  retryData: () => { dataError = null; render(); window.PatrimoineData.retry(); },
   stop:   () => {},
-  hide:   () => { localStorage.setItem('hideAmounts', state.hide ? '0' : '1'); set({ hide: !state.hide }); },
-  signOut: () => window.PatrimoineAuth.signOut(),
-  authToggle: () => set({ authMode: state.authMode === 'signup' ? 'signin' : 'signup', authError:null }),
-  authForgot: async () => {
-    const email = app.querySelector('#authEmail')?.value.trim();
-    if (!email) { state.authError = 'Renseigne ton e-mail puis réessaie.'; render(); return; }
-    try { await window.PatrimoineAuth.resetPassword(email); state.authError = 'E-mail de réinitialisation envoyé.'; }
-    catch (e) { state.authError = e.message; }
-    render();
-  }
+  hide:   () => { writePref('hideAmounts', state.hide ? '0' : '1'); set({ hide: !state.hide }); },
+  editLine: arg => {
+    const line = (snap?.lines || [])[Number(arg)];
+    if (!line) return;
+    const buys = (snap?.operations || []).filter(o => o.compte === line.compte && o.type === 'Achat' &&
+      (o.libelle === line.name || (o.ticker && o.ticker === line.ticker) || (o.isin && o.isin === line.isin)));
+    const buyDate = buys.reduce((min, o) => (!min || o.date < min) ? o.date : min, '');
+    formEpoch++;
+    set({ editing:{ ...line, buyDate }, formCompte:line.compte, sheet:true, sheetTab:'saisie', report:null });
+  },
+  delEditing: async () => {
+    const ed = state.editing;
+    if (!ed) return;
+    const nOps = window.PatrimoineData.countPositionOperations(ed.name, ed.compte);
+    const ok = await UI.confirm(`Supprimer « ${ed.name} » ?`,
+      nOps ? `Ses ${nOps} opération(s) d'achat/vente seront supprimées aussi, sinon la ligne réapparaîtrait. Versements et dividendes sont conservés.` : `La ligne est retirée de ${ed.compte}.`,
+      { confirmLabel:'Supprimer', danger:true, onConfirm: () => window.PatrimoineData.removePosition(ed.name, ed.compte) });
+    if (ok) { formEpoch++; UI.toast(`« ${ed.name} » supprimée`, 'ok'); set({ editing:null, sheet:false, report:null }); }
+  },
+  editCash: compteName => {
+    const cur = snap?.comptes?.[compteName]?.cash ?? 0;
+    const derive = rawCash()[compteName] == null;
+    return UI.dialog({
+      title:`Liquidités · ${compteName}`,
+      message: derive ? `Calculées à partir de tes opérations : ${cashExplain(compteName)}.\nSi ce n'est pas ton solde réel, indique le bon montant.` : 'Montant que tu as fixé. Laisse vide pour revenir au calcul automatique.',
+      fields:[{ name:'v', label:'Liquidités (€)', value:frNum(cur), inputmode:'decimal', hint:'Mets 0 si tu n\'as pas d\'espèces sur cette enveloppe.' }],
+      confirmLabel:'Enregistrer',
+      onConfirm: async ({ v }) => {
+        if (!derive && String(v).trim() === '') await window.PatrimoineData.clearCash(compteName);
+        else await window.PatrimoineData.setCash(compteName, parseAmount(v));
+        UI.toast('Liquidités mises à jour', 'ok');
+      }
+    });
+  },
+  editBalance: compteName => {
+    const c = snap?.comptes?.[compteName];
+    return UI.dialog({
+      title:`Solde · ${compteName}`,
+      fields:[
+        { name:'solde', label:'Solde actuel (€)', value:frNum(c?.balance ?? ''), inputmode:'decimal', placeholder:'ex. 6 681,68' },
+        { name:'taux', label:'Taux annuel (%) — facultatif', value:frNum(c?.taux ?? ''), inputmode:'decimal', placeholder:'ex. 2,4' }
+      ],
+      confirmLabel:'Enregistrer',
+      onConfirm: async ({ solde, taux }) => {
+        const t = String(taux).trim() === '' ? null : window.PatrimoineCore.num(taux);
+        if (String(taux).trim() !== '' && (t == null || t < 0 || t > 20)) throw new Error('Taux invalide : entre 0 et 20 %.');
+        await window.PatrimoineData.updateBalance(compteName, parseAmount(solde), t);
+        UI.toast(`Solde de ${compteName} enregistré`, 'ok');
+      }
+    });
+  },
+  opMenu: async arg => {
+    const op = (snap?.operations || []).find(o => o.idx === Number(arg));
+    if (!op) return;
+    await UI.confirm('Supprimer cette opération ?',
+      `${op.dateFr} · ${op.compte} · ${op.type}\n${op.libelle} · ${sEur(opAmount(op))}\n\nLes montants qui en découlent seront recalculés.`,
+      { confirmLabel:'Supprimer', danger:true, onConfirm: () => window.PatrimoineData.removeOperation(op) });
+  },
+  addOp: () => {
+    const list = [...new Set([...comptes(), ...BASE_COMPTES])];
+    const today = new Date().toISOString().slice(0,10);
+    return UI.dialog({
+      title:'Ajouter une opération',
+      message:'Le sens (entrée ou sortie) est déduit du type : saisis le montant en positif.',
+      fields:[
+        { name:'date', label:'Date', type:'date', value:today, max:today },
+        { name:'compte', label:'Enveloppe', options:list, value:state.filt !== 'Tous' ? state.filt : list[0] },
+        { name:'type', label:'Type', options:OP_TYPES, value:'Versement' },
+        { name:'libelle', label:'Libellé (facultatif)', placeholder:'ex. Virement mensuel' },
+        { name:'montant', label:'Montant (€)', inputmode:'decimal', placeholder:'ex. 200' }
+      ],
+      confirmLabel:'Ajouter',
+      onConfirm: async v => {
+        const m = parseAmount(v.montant);
+        if (!m) throw new Error('Le montant doit être supérieur à 0.');
+        await window.PatrimoineData.addOperation({ ...v, montant:m });
+        UI.toast('Opération ajoutée', 'ok');
+      }
+    });
+  },
+  editExpenses: () => UI.dialog({
+    title:'Dépenses mensuelles',
+    message:'Tes dépenses courantes par mois, pour savoir combien de mois ton épargne de précaution couvre. Laisse vide pour retirer le calcul.',
+    fields:[{ name:'v', label:'Dépenses par mois (€)', value:frNum(depensesMensuelles()), inputmode:'decimal', placeholder:'ex. 1 500' }],
+    confirmLabel:'Enregistrer',
+    onConfirm: async ({ v }) => { await window.PatrimoineData.saveSettings({ monthlyExpenses: parseAmount(v, { allowEmpty:true }) }); }
+  }),
+  signOut: () => { UI.loading(app, 'Déconnexion…'); return window.PatrimoineAuth.signOut(); }
 };
 
 app.addEventListener('click', e => {
   const t = e.target.closest('[data-act]');
-  if (!t) return;
+  if (!t || !app.contains(t)) return;
   const fn = ACTIONS[t.dataset.act];
-  if (fn) { e.stopPropagation(); fn(t.dataset.arg); }
+  if (fn) { e.stopPropagation(); UI.run(fn, t.dataset.arg); }
+});
+
+// bouton retour Android / Échap : ferme la feuille au lieu de quitter l'app
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state.sheet && !document.querySelector('.pk-overlay')) { formEpoch++; set({ sheet:false, editing:null }); }
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (!document.hidden && state.user && conn.status !== 'offline') window.PatrimoineData.refreshPerf(true).catch(() => {});
+  if (!document.hidden && state.user && snap) window.PatrimoineData.refreshPerf(true, false).catch(() => {});
 });
+window.addEventListener('online', () => render());
+window.addEventListener('offline', () => render());
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('/m/sw.js').catch(() => {});
 
 render();
-whenFirebaseReady(boot);
+UI.whenReady(app, boot);
 </script>
 </body>
 </html>

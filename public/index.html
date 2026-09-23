@@ -10,9 +10,12 @@
 <!-- ?v= : numéro à incrémenter à chaque déploiement qui touche ces fichiers.
      Sans lui, un navigateur ayant déjà mis un module en cache continue de servir
      l'ancienne version jusqu'à expiration, et l'app paraît « ne pas se mettre à jour ». -->
-<script src="/firebase-config.js?v=9"></script>
-<script src="/app-core.js?v=9"></script>
-<script type="module" src="/firebase-client.js?v=9"></script>
+<meta name="theme-color" content="#ffffff">
+<link rel="icon" href="/m/icon-192.png">
+<script src="/firebase-config.js?v=10"></script>
+<script src="/app-core.js?v=10"></script>
+<script src="/ui-kit.js?v=10"></script>
+<script type="module" src="/firebase-client.js?v=10"></script>
 <style>
 :root{
   --blue:#0052ff; --blue-d:#003ecc; --blue-l:#4d84ff;
@@ -30,7 +33,7 @@ a:hover{color:var(--blue-d)}
 /* Pas de min-width : la maquette d'origine imposait 1280px, ce qui coupait
    le contenu à droite dès que la fenêtre était plus étroite. */
 .shell{display:flex;min-height:100vh;align-items:stretch;width:100%}
-html,body{max-width:100%;overflow-x:hidden}
+html,body{max-width:100%;overflow-x:clip}          /* clip et non hidden : hidden cassait la barre latérale collante */
 
 /* ---------- sidebar ---------- */
 .side{width:244px;flex:none;background:var(--white);border-right:1px solid var(--line);padding:24px 16px;display:flex;flex-direction:column;gap:28px;position:sticky;top:0;height:100vh}
@@ -226,110 +229,15 @@ main{min-width:0}                       /* sans ça, un enfant large empêche le
 /* ============================================================
    Configuration
    ============================================================ */
-const CONFIG = {
-  defaultPeriod: 'Global',
-  showProjection: true,
-  showFiscalite: true,
-  pollMs: 60_000        // repli si le flux SSE n'est pas disponible
-};
+const CONFIG = { defaultPeriod: 'Global' };
 
-/* ============================================================
-   Données statiques
-   Non déductibles d'un export courtier : projections de dividendes,
-   look-through sectoriel des ETF, commentaires d'exposition.
-   ============================================================ */
+/* Aucune donnée de démonstration : tout ce qui s'affiche est calculé à partir
+   des opérations, lignes et soldes de l'utilisateur. Ce qu'un relevé courtier
+   ne permet pas de connaître (secteurs, composition des ETF, dividendes à
+   venir) n'est pas affiché plutôt qu'inventé. */
 const PAL = ['#0052ff','#0a0b0d','#4d84ff','#5b616e','#99b7ff','#a8acb3','#c8ccd2','#dee1e6','#eef0f3'];
 const MLABEL = ['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
 const MSHORT = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
-
-const SECTEURS = {
-  'Tout': [['Épargne réglementée',6686.68],['Industrie & équipement',577.04],['Technologie & logiciel',533.05],['Énergie & utilities',158.06],['Obligations & fonds euro',157.47],['Finance',47.27],['Consommation',40.52],['Santé',33.77],['Autres secteurs',50.66]],
-  'PEA': [['Industrie & équipement',539.90],['Logiciel & services IT',425.00],['Énergie & utilities',137.80],['Liquidités',5.00]],
-  'Assurance Vie': [['Obligations & fonds euro',157.47],['Technologie',108.05],['Finance',47.27],['Consommation',40.52],['Industrie',37.14],['Santé',33.77],['Énergie & utilities',20.26],['Autres secteurs',50.66]]
-};
-
-const NOTES = {
-  'Tout': {
-    titre:'Le Livret A représente à lui seul 80,7 % du patrimoine. Les trois actions du PEA pèsent 13,3 %.',
-    secteur:"Répartition sectorielle estimée par transparence sur les ETF — non recalculée à chaque cotation.",
-    classe:'Part garantie, actions et obligations recalculées à chaque cotation.'
-  },
-  'PEA': {
-    titre:'Trois lignes seulement — Schneider et Sidetrade concentrent l\'essentiel de l\'enveloppe.',
-    secteur:'Aucune diversification sectorielle : industrie, logiciel, utilities.',
-    classe:'Que des actions en direct, aucun ETF dans le PEA.'
-  },
-  'Assurance Vie': {
-    titre:'Neuf supports, mais les deux ETF S&P 500 pèsent près de la moitié du contrat.',
-    secteur:'Contrat équilibré entre poche obligataire et poche actions.',
-    classe:'ETF actions, obligations et fonds euro.'
-  }
-};
-
-const EXPO = {
-  'Tout': [
-    ['Schneider Electric',539.90,0.58,'En direct (PEA) + Vanguard FTSE Europe + MSCI World'],
-    ['Sidetrade',425.00,0,'En direct (PEA) uniquement'],
-    ['Engie',137.80,0.22,'En direct (PEA) + Vanguard FTSE Europe'],
-    ['NVIDIA',0,19.42,'Amundi S&P 500 ×2 + MSCI World'],
-    ['Microsoft',0,16.83,'Amundi S&P 500 ×2 + MSCI World'],
-    ['Apple',0,15.55,'Amundi S&P 500 ×2 + MSCI World'],
-    ['Amazon',0,9.84,'Amundi S&P 500 ×2 + MSCI World']
-  ],
-  'PEA': [
-    ['Schneider Electric',539.90,0,'En direct'],
-    ['Sidetrade',425.00,0,'En direct'],
-    ['Engie',137.80,0,'En direct']
-  ],
-  'Assurance Vie': [
-    ['NVIDIA',0,19.42,'Amundi S&P 500 ×2 + MSCI World'],
-    ['Microsoft',0,16.83,'Amundi S&P 500 ×2 + MSCI World'],
-    ['Apple',0,15.55,'Amundi S&P 500 ×2 + MSCI World'],
-    ['Amazon',0,9.84,'Amundi S&P 500 ×2 + MSCI World'],
-    ['Alphabet',0,8.95,'Amundi S&P 500 ×2 + MSCI World']
-  ]
-};
-
-const EXPO_META = {
-  'Tout': {
-    title:"L'exposition réelle aux marchés actions reste minoritaire",
-    body:"Le Livret A absorbe l'essentiel du patrimoine ; seules les lignes du PEA et les UC de l'assurance vie sont exposées aux marchés.",
-    overlap:'100 %', overlapNote:"Amundi Core S&P 500 et Amundi S&P 500 Daily Hedged suivent le même indice — l'un couvert en euro, l'autre non.",
-    top5:'95,6 %', top5Bar:95.6, top5Note:'Livret A, Schneider, Sidetrade, Engie et le SPDR obligataire cumulés.'
-  },
-  'PEA': {
-    title:'Trois lignes, aucune diversification',
-    body:'Aucun ETF dans le PEA : la performance dépend entièrement de Schneider Electric, Sidetrade et Engie. Sidetrade est une small cap Euronext Growth, peu liquide.',
-    overlap:'—', overlapNote:"Aucun fonds dans l'enveloppe : pas de chevauchement possible, mais aucune dilution du risque non plus.",
-    top5:'99,5 %', top5Bar:99.5, top5Note:'Les trois lignes hors liquidités.'
-  },
-  'Assurance Vie': {
-    title:'Deux ETF pour un seul indice',
-    body:"Amundi Core S&P 500 et Amundi S&P 500 Daily Hedged suivent le même panier. Avec le MSCI World, l'exposition américaine dépasse la moitié du contrat.",
-    overlap:'100 %', overlapNote:'Le S&P 500 pèse aussi 71 % du MSCI World : trois supports se recouvrent largement.',
-    top5:'87,3 %', top5Bar:87.3, top5Note:'Les cinq plus gros supports du contrat sur neuf.'
-  }
-};
-
-/** Dividendes : versements passés = réels (API) ; mois à venir = estimation annoncée. */
-const DIV_EST = {
-  2026: {
-    months:[0,0,0,0,5,0,0,0,0,2.15,0,160.36], max:170,
-    lines:[[],[],[],[],[['Engie — solde 2025','5,00 €']],[],[],[],[],[['Engie — acompte 2026','2,15 €']],[],[['Intérêts Livret A','160,36 €']]],
-    estime:'167,51 €', yieldS:'2,06 %', next:'Engie · 16 octobre',
-    compare:'2027 estimé : 178,95 € avec Schneider en année pleine',
-    summary:'Engie versé en mai · Livret A crédité au 31/12',
-    top:[{name:'Intérêts Livret A (est.)',amount:'160,36 €'},{name:'Engie — solde 2025',amount:'5,00 €'},{name:'Engie — acompte 2026 (est.)',amount:'2,15 €'},{name:'Schneider Electric',amount:'0,00 €'},{name:'Sidetrade — ne verse pas',amount:'—'}]
-  },
-  2027: {
-    months:[0,0,0,0,12.8,0,0,0,0,2.15,0,164], max:170,
-    lines:[[],[],[],[],[['Schneider Electric','7,80 €'],['Engie — solde 2026','5,00 €']],[],[],[],[],[['Engie — acompte 2027','2,15 €']],[],[['Intérêts Livret A','164,00 €']]],
-    estime:'178,95 €', yieldS:'2,16 %', next:'Schneider · mai 2027',
-    compare:'Première année pleine pour Schneider Electric',
-    summary:'Projection sur les dividendes annoncés',
-    top:[{name:'Intérêts Livret A',amount:'164,00 €'},{name:'Schneider Electric',amount:'7,80 €'},{name:'Engie — solde',amount:'5,00 €'},{name:'Engie — acompte',amount:'2,15 €'}]
-  }
-};
 
 /* ============================================================
    Formatage
@@ -354,16 +262,16 @@ const monthLong  = s => s ? MLABEL[Number(s.slice(5,7))-1].toLowerCase() + ' ' +
 const state = {
   view:'global', period:CONFIG.defaultPeriod, modal:false, modalTab:'saisie', pendingFile:null,
   editing:null, formCompte:'PEA', filt:'Tous',
-  hov:null, year:2026, dHov:null, env:'Tout', tab:'titre', seg:null,
+  hov:null, year:new Date().getFullYear(), dHov:null, env:'Tout', tab:'titre', seg:null,
   importing:false, report:null,
-  user:undefined,                    // undefined = état d'auth pas encore connu, null = déconnecté
-  authMode:'signin', authBusy:false, authError:null
+  user:undefined                     // undefined = état d'auth pas encore connu, null = déconnecté
 };
 
 let snap = null;                                   // dernière valorisation reçue (Firestore, temps réel)
 let conn = { status:'connecting', at:null, error:null };
-let dataError = null;                              // échec du bootstrap Firestore/Functions
+let dataError = null;                              // lecture Firestore impossible (message lisible)
 let unsubData = null;
+const UI = window.PatrimoineUI;
 
 function set(patch){
   let changed = false;
@@ -378,14 +286,15 @@ function set(patch){
 function subscribeData(){
   unsubData?.();
   dataError = null;
-  unsubData = window.PatrimoineData.onSnapshot(s => {
-    snap = s;
-    conn = s ? { status: s.quotes?.failed?.length ? 'partial' : 'live', at: Date.now(), error: null } : conn;
-    render();
-  });
-  // amorce un instantané (portefeuille vide compris) dès la connexion, sinon
-  // un compte tout neuf resterait bloqué sur l'écran de chargement.
-  window.PatrimoineData.refreshPerf(false).catch(e => { dataError = e.message; render(); });
+  unsubData = window.PatrimoineData.onSnapshot(
+    s => {
+      snap = s;
+      dataError = null;
+      if (s) conn = { status: s.quotes?.failed?.length ? 'partial' : 'live', at: Date.now(), error: null };
+      render();
+    },
+    message => { dataError = message; render(); }
+  );
 }
 
 function unsubscribeData(){
@@ -394,13 +303,19 @@ function unsubscribeData(){
 }
 
 function handleUser(user){
+  const changed = (state.user?.uid || null) !== (user?.uid || null) || state.user === undefined;
   state.user = user;
+  if (!changed) return;
   if (user) subscribeData(); else unsubscribeData();
+  // nouvelle session : on repart d'un état d'écran propre
+  Object.assign(state, { view:'global', modal:false, editing:null, report:null, pendingFile:null });
   render();
 }
 
 function boot(){ window.PatrimoineAuth.onUser(handleUser); }
-function whenFirebaseReady(cb){ window.PatrimoineAuth ? cb() : window.addEventListener('patrimoine:ready', cb, { once:true }); }
+
+/** Sens réel d'une opération, quel que soit le signe utilisé par le fichier d'origine. */
+const opAmount = o => (o.type === 'Achat' || o.type === 'Retrait') ? -Math.abs(o.montant) : Math.abs(o.montant);
 
 /* ============================================================
    Sélecteurs sur l'instantané
@@ -412,41 +327,39 @@ const hist = () => (snap?.history || []);
 /* ============================================================
    Constantes réglementaires françaises (faits, pas des estimations)
    ============================================================ */
-const PLAFOND_PEA = 150000;        // plafond de versement sur un PEA
-const PLAFOND_LIVRET_A = 22950;    // plafond du Livret A hors intérêts capitalisés
 const PS_RATE = 0.172;             // prélèvements sociaux
 
-/**
- * Échéance fiscale d'une enveloppe : date de la première opération + n années.
- * Renvoie un libellé « — » tant qu'aucune opération n'est connue, plutôt que
- * d'afficher une date inventée.
- */
+/** Date de la première opération d'une enveloppe (Date) ou null. */
+function premiereOp(compteName){
+  const iso = snap?.comptes?.[compteName]?.premiereOperation;
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 /** Part du délai fiscal déjà écoulée, en %, pour la jauge d'antériorité. */
 function anciennetePct(compteName, years){
-  const ops = (snap?.operations || []).filter(o => o.compte === compteName);
-  if (!ops.length) return 0;
-  const first = new Date(ops[ops.length - 1].date);
-  if (Number.isNaN(first.getTime())) return 0;
+  const first = premiereOp(compteName);
+  if (!first) return 0;
   const ecoule = (Date.now() - first) / (365.25 * 86400000);
   return Math.max(0, Math.min(100, ecoule / years * 100)).toFixed(1);
 }
 
 /** Ancienneté réelle d'une enveloppe, depuis sa première opération. */
 function anciennete(compteName){
-  const ops = (snap?.operations || []).filter(o => o.compte === compteName);
-  if (!ops.length) return '—';
-  const first = new Date(ops[ops.length - 1].date);
-  if (Number.isNaN(first.getTime())) return '—';
+  const first = premiereOp(compteName);
+  if (!first) return '—';
   const mois = Math.max(0, Math.round((Date.now() - first) / (30.44 * 86400000)));
   return mois >= 24 ? `${Math.floor(mois / 12)} ans` : `${mois} mois`;
 }
 
+/**
+ * Échéance fiscale d'une enveloppe : date de la première opération + n années.
+ * « — » tant qu'aucune opération n'est connue, plutôt qu'une date inventée.
+ */
 function maturity(compteName, years){
-  const ops = (snap?.operations || []).filter(o => o.compte === compteName);
-  if (!ops.length) return { label:'—', date:null };
-  const first = ops[ops.length - 1].date;           // journal trié du plus récent au plus ancien
-  const d = new Date(first);
-  if (Number.isNaN(d.getTime())) return { label:'—', date:null };
+  const d = premiereOp(compteName);
+  if (!d) return { label:'—', date:null };
   d.setFullYear(d.getFullYear() + years);
   const iso = d.toISOString().slice(0,10);
   const reste = Math.max(0, Math.round((d - new Date()) / (30.44 * 86400000)));
@@ -500,23 +413,15 @@ function periodWindow(period = state.period){
   };
 }
 
-/** Compat : ancien appel [montant, pourcentage]. */
-function perfPeriod(period){
-  const w = periodWindow(period);
-  return [sEur(w.gain), sPct(w.pct)];
-}
-
-/** Série d'un compte : historique réel si disponible, sinon droite début → aujourd'hui. */
+/**
+ * Série d'une enveloppe : uniquement les points d'historique réellement
+ * enregistrés. Pas de droite tracée de 0 à aujourd'hui quand l'historique
+ * manque — elle faisait croire à une évolution qui n'a pas été mesurée.
+ */
 function serieFor(name){
-  const h = hist();
-  const withCompte = h.filter(p => p.comptes && p.comptes[name]);
-  if (withCompte.length >= 2) return withCompte.map(p => ({ date:p.date, cap:p.comptes[name].mise, val:p.comptes[name].value }));
-
-  const c = compte(name);
-  const ops = (snap?.operations || []).filter(o => o.compte === name);
-  const first = ops.length ? ops[ops.length - 1].date : (h[0]?.date || null);
-  if (!first) return [];
-  return [{ date:first, cap:0, val:0 }, { date:h[h.length-1]?.date || first, cap:c.mise, val:c.value }];
+  return hist()
+    .filter(p => p.comptes && p.comptes[name])
+    .map(p => ({ date:p.date, cap:p.comptes[name].mise, val:p.comptes[name].value }));
 }
 
 /* ============================================================
@@ -562,18 +467,25 @@ function statusLine(){
   const when = age == null ? '' : (age < 90 ? `il y a ${age} s` : `il y a ${Math.round(age/60)} min`);
   const failed = q?.failed?.length || 0;
   const total = (snap.lines || []).length;
-  if (failed) return { dot:'warn', text:`${total - failed}/${total} cotations à jour · ${failed} en repli sur le dernier cours connu · ${when}` };
-  return { dot:'pulse', text:`Cotations ${esc(q?.provider || 'live')} · ${total} lignes à jour ${when}` };
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return { dot:'off', text:'Hors ligne · dernières valeurs connues' };
+  if (!snap.live) return { dot:'off', text: total ? `${total} ligne${total > 1 ? 's' : ''} · derniers cours connus` : 'Aucune ligne cotée' };
+  if (failed) return { dot:'warn', text:`${total - failed}/${total} cotations à jour · ${failed} au dernier cours connu · ${when}` };
+  return { dot:'pulse', text:`Cotations en direct · ${total} ligne${total > 1 ? 's' : ''} à jour · ${when}` };
 }
 
 /* ---------- sidebar ---------- */
+/** Enveloppes réellement présentes dans les données, de la plus grosse à la plus petite. */
+const comptesList = () => Object.values(snap?.comptes || {}).sort((a, b) => b.value - a.value);
+/** Gabarit de vue d'une enveloppe : solde (livret), contrat (assurance vie, PER) ou titres (PEA, CTO…). */
+const kindOf = c => (c.garanti && !c.lines.length) ? 'solde' : (/assurance|vie|\bper\b|contrat/i.test(c.name) ? 'contrat' : 'titres');
+
 function sidebar(){
-  const pea = compte('PEA'), av = compte('Assurance Vie'), la = compte('Livret A');
   const item = (view, label, amount, klass, root) =>
-    `<div class="nav-item${state.view === view ? ' on' : ''}${root ? ' root' : ''}" data-act="view" data-arg="${view}">
-       <span>${label}</span><span class="amt ${klass || ''}">${amount}</span>
+    `<div class="nav-item${state.view === view ? ' on' : ''}${root ? ' root' : ''}" data-act="view" data-arg="${esc(view)}">
+       <span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(label)}</span><span class="amt ${klass || ''}">${amount}</span>
      </div>`;
   const lastImport = snap?.imports?.[0];
+  const envs = comptesList();
   return `
   <aside class="side">
     <div class="brand"><div class="brand-mark">P</div><div class="brand-name">Patrimoine</div></div>
@@ -581,9 +493,11 @@ function sidebar(){
       <div class="nav-label">Vue</div>
       ${item('global','Vue globale', eur0(T().patrimoine), '', true)}
       <div class="nav-label">Enveloppes</div>
-      ${item('pea','PEA', sPct(pea.pvPct), cls(pea.pvPct))}
-      ${item('av','Assurance Vie', sPct(av.pvPct), cls(av.pvPct))}
-      ${item('livret','Livret A', eur0(la.value), '')}
+      ${envs.length
+        ? envs.map(c => kindOf(c) === 'solde'
+            ? item('c:' + c.name, c.name, eur0(c.value), '')
+            : item('c:' + c.name, c.name, sPct(c.pvPct), cls(c.pvPct))).join('')
+        : `<div class="nav-item" data-act="modal" data-arg="1"><span style="color:var(--blue)">+ Ajouter une enveloppe</span></div>`}
       <div class="nav-label">Données</div>
       ${item('ops','Opérations', String((snap?.operations || []).length), '')}
     </nav>
@@ -636,7 +550,7 @@ function kpiRow(){
   const spark = chart(h.slice(-24).map(p => ({ val:p.val, cap:p.cap })), 240, 34, 3);
   const day = t.dayChange;
   return `
-  <div class="grid" style="grid-template-columns:1.4fr 1fr 1fr 1fr 1fr">
+  <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">
     <div class="card">
       <div class="kpi-l">Patrimoine total</div>
       <div class="kpi-v xl">${eur(t.patrimoine)}</div>
@@ -648,7 +562,7 @@ function kpiRow(){
     </div>
     <div class="card">
       <div class="kpi-l">Capital investi</div><div class="kpi-v">${eur(t.capital)}</div>
-      <div class="kpi-n">Livret A inclus · ${t.moisSuivis || 0} mois de suivi</div>
+      <div class="kpi-n">Épargne garantie incluse · ${t.moisSuivis || 0} mois de suivi</div>
     </div>
     <div class="card">
       <div class="kpi-l">Plus-value totale</div><div class="kpi-v ${cls(t.pv)}">${sEur(t.pv)}</div>
@@ -760,85 +674,85 @@ function chartCard(){
   </div>`;
 }
 
-/* ---------- dividendes : réel (API) + estimations (statique) ---------- */
+/* ---------- dividendes : uniquement les versements réellement encaissés ---------- */
 function divTotalRealized(){
   const d = snap?.dividends || {};
   return Object.values(d).reduce((s, y) => s + (y.total || 0), 0);
 }
 
-function divModel(year){
-  const est = DIV_EST[year] || { months:Array(12).fill(0), lines:Array.from({length:12},()=>[]), max:1, top:[], estime:'—', yieldS:'—', next:'—', compare:'', summary:'' };
-  const real = snap?.dividends?.[year];
-  const months = est.months.slice();
-  const lines = est.lines.map(l => l.slice());
-  let lastPaid = -1;
+/** Années disponibles : celles qui ont des versements, plus l'année en cours. */
+function divYears(){
+  const cur = new Date().getFullYear();
+  return [...new Set([cur, ...Object.keys(snap?.dividends || {}).map(Number)])].sort((a, b) => b - a).slice(0, 5);
+}
 
-  if (real){
-    real.months.forEach((v,i) => {
-      if (v > 0){ months[i] = v; lines[i] = real.lines[i]; lastPaid = Math.max(lastPaid, i); }
-    });
-  }
+function divModel(year){
+  const real = snap?.dividends?.[year];
+  const months = real ? real.months.slice() : Array(12).fill(0);
+  const lines = real ? real.lines.map(l => l.slice()) : Array.from({ length:12 }, () => []);
   const percu = real ? real.total : 0;
   const capital = T().capital || 0;
+  // meilleurs versements de l'année, regroupés par libellé
+  const byName = {};
+  lines.flat().forEach(([n, v]) => { byName[n] = (byName[n] || 0) + v; });
+  const top = Object.entries(byName).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, v]) => ({ name, amount:eur(v) }));
+  const count = lines.reduce((s, l) => s + l.length, 0);
   return {
-    months, lines, lastPaid, max: Math.max(est.max, ...months),
-    percu: sEur(percu).replace('+',''),
-    estime: est.estime, yieldS: est.yieldS, next: est.next,
-    compare: est.compare, summary: est.summary, top: est.top
+    months, lines, max: Math.max(1, ...months), percu, count, top,
+    yieldPct: capital ? percu / capital * 100 : null
   };
 }
 
 function dividendCard(){
+  const years = divYears();
+  if (!years.includes(state.year)) state.year = years[0];
   const div = divModel(state.year);
   const dh = state.dHov;
+  const cur = new Date();
+  const isCurYear = state.year === cur.getFullYear();
 
-  const bars = div.months.slice(0,12).map((val,i) => {
-    const paid = i <= div.lastPaid && val > 0;
+  const bars = div.months.map((val, i) => {
     const hgt = val === 0 ? 0 : Math.max(3, val / div.max * 100);
+    const future = isCurYear && i > cur.getMonth();
     const style = [
       'width:100%', `height:${hgt}%`, `min-height:${val === 0 ? '2px' : '0px'}`,
       'border-radius:4px 4px 0 0',
-      `background:${val === 0 ? 'var(--line)' : (paid ? 'var(--green)' : '#ffffff')}`,
-      `border:${val === 0 ? 'none' : (paid ? 'none' : '1.5px dashed #a8acb3')}`,
+      `background:${val === 0 ? (future ? 'var(--line2)' : 'var(--line)') : 'var(--green)'}`,
       `opacity:${(dh === null || dh === i) ? 1 : 0.4}`, 'transition:opacity .12s'
     ].join(';');
     return `<div data-hover="dHov" data-hval="${i}" style="height:100%;display:flex;align-items:flex-end;cursor:pointer"><div style="${style}"></div></div>`;
   }).join('');
 
   const tipMonth = dh === null ? 'Année ' + state.year : MLABEL[dh] + ' ' + state.year;
-  const tipTotal = dh === null ? div.estime : eur(div.months[dh]);
-  const tipStatus = dh === null ? div.summary
-    : (dh <= div.lastPaid && div.months[dh] > 0 ? 'Versement encaissé'
-    : (div.months[dh] === 0 ? 'Aucun versement attendu ce mois-ci' : 'Estimation sur la base des dividendes annoncés'));
-  const tipLines = dh === null ? div.top
-    : (div.lines[dh]?.length ? div.lines[dh].map(l => ({ name:l[0], amount: typeof l[1] === 'number' ? eur(l[1]) : l[1] })) : [{ name:'Aucun versement', amount:'—' }]);
-  const cumul = dh === null ? div.percu : eur(div.months.slice(0, dh+1).reduce((a,b) => a+b, 0));
+  const tipTotal = dh === null ? eur(div.percu) : eur(div.months[dh]);
+  const tipStatus = dh === null
+    ? (div.count ? `${div.count} versement${div.count > 1 ? 's' : ''} encaissé${div.count > 1 ? 's' : ''}` : 'Aucun versement enregistré')
+    : (div.months[dh] > 0 ? 'Versement encaissé' : 'Aucun versement ce mois-ci');
+  const tipLines = dh === null
+    ? (div.top.length ? div.top : [{ name:'Aucun versement', amount:'—' }])
+    : (div.lines[dh]?.length ? div.lines[dh].map(l => ({ name:l[0], amount:eur(l[1]) })) : [{ name:'Aucun versement', amount:'—' }]);
+  const cumul = dh === null ? eur(div.percu) : eur(div.months.slice(0, dh + 1).reduce((a, b) => a + b, 0));
 
   return `
   <div class="card lg">
     <div class="head-block">
       <div>
         <div class="card-t">Dividendes, coupons &amp; intérêts</div>
-        <div class="card-s">Versements encaissés issus des opérations importées · mois à venir estimés</div>
+        <div class="card-s">Versements réellement encaissés, d'après tes opérations</div>
       </div>
-      ${segControl([{value:'2026',label:'2026',small:true},{value:'2027',label:'2027 estimé',small:true}], String(state.year), 'year')}
+      ${segControl(years.map(y => ({ value:String(y), label:String(y), small:true })), String(state.year), 'year')}
     </div>
-    <div style="display:flex;gap:40px;margin-top:20px">
-      <div><div style="font-size:13px;color:var(--mut2)">Perçu à ce jour</div><div class="mono pos" style="font-size:24px;font-weight:500;margin-top:4px;white-space:nowrap">${div.percu}</div></div>
-      <div><div style="font-size:13px;color:var(--mut2)">Estimé sur l'année</div><div class="mono" style="font-size:24px;font-weight:500;margin-top:4px;white-space:nowrap">${div.estime}</div></div>
-      <div><div style="font-size:13px;color:var(--mut2)">Rendement sur capital</div><div class="mono" style="font-size:24px;font-weight:500;margin-top:4px;white-space:nowrap">${div.yieldS}</div></div>
-      <div><div style="font-size:13px;color:var(--mut2)">Prochain versement</div><div style="font-size:15px;font-weight:600;margin-top:8px;white-space:nowrap">${div.next}</div></div>
+    <div style="display:flex;gap:40px;margin-top:20px;flex-wrap:wrap">
+      <div><div style="font-size:13px;color:var(--mut2)">Perçu en ${state.year}</div><div class="mono pos" style="font-size:24px;font-weight:500;margin-top:4px;white-space:nowrap">${eur(div.percu)}</div></div>
+      <div><div style="font-size:13px;color:var(--mut2)">Rendement sur capital investi</div><div class="mono" style="font-size:24px;font-weight:500;margin-top:4px;white-space:nowrap">${div.yieldPct == null ? '—' : pctS(div.yieldPct)}</div></div>
+      <div><div style="font-size:13px;color:var(--mut2)">Total depuis le début</div><div class="mono" style="font-size:24px;font-weight:500;margin-top:4px;white-space:nowrap">${eur(divTotalRealized())}</div></div>
     </div>
+    ${div.count || divTotalRealized() ? `
     <div class="grid" style="grid-template-columns:1fr 264px;gap:24px;margin-top:24px;align-items:stretch">
       <div data-leave="dHov">
         <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:10px;align-items:end;height:190px;border-bottom:1px solid var(--line)">${bars}</div>
         <div style="display:grid;grid-template-columns:repeat(12,1fr);gap:10px;margin-top:8px">
           ${['J','F','M','A','M','J','J','A','S','O','N','D'].map(m => `<span style="font-size:11px;color:var(--mut2);text-align:center">${m}</span>`).join('')}
-        </div>
-        <div style="display:flex;gap:24px;margin-top:18px;padding-top:16px;border-top:1px solid var(--line2)">
-          <div class="legend"><span class="sq" style="background:var(--green)"></span><span>Perçu</span></div>
-          <div class="legend"><span class="sq" style="background:#fff;border:1.5px dashed var(--mut3)"></span><span>Estimé</span></div>
-          <span style="font-size:13px;color:var(--mut2);margin-left:auto">${div.compare}</span>
         </div>
       </div>
       <div class="panel-dark">
@@ -846,227 +760,199 @@ function dividendCard(){
         <div class="mono" style="font-size:26px;font-weight:500;color:#fff;margin-top:8px;letter-spacing:-.5px;white-space:nowrap">${tipTotal}</div>
         <div style="font-size:12px;color:var(--mut3);margin-top:4px;line-height:1.45">${tipStatus}</div>
         <div style="margin-top:16px;display:flex;flex-direction:column;gap:8px">
-          ${tipLines.map(l => `<div style="display:flex;justify-content:space-between;gap:16px"><span style="font-size:13px;color:var(--mut3)">${esc(l.name)}</span><span class="mono" style="font-size:13px;font-weight:500;color:#fff;white-space:nowrap">${esc(l.amount)}</span></div>`).join('')}
+          ${tipLines.map(l => `<div style="display:flex;justify-content:space-between;gap:16px"><span style="font-size:13px;color:var(--mut3);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.name)}</span><span class="mono" style="font-size:13px;font-weight:500;color:#fff;white-space:nowrap">${esc(l.amount)}</span></div>`).join('')}
         </div>
         <div style="margin-top:auto;padding-top:16px;display:flex;justify-content:space-between;gap:16px;border-top:1px solid var(--dark-line)">
-          <span style="font-size:13px;color:var(--mut3)">${dh === null ? 'Perçu à ce jour' : 'Cumul depuis janvier'}</span>
+          <span style="font-size:13px;color:var(--mut3)">${dh === null ? 'Total de l\'année' : 'Cumul depuis janvier'}</span>
           <span class="mono pos" style="font-size:13px;font-weight:600;white-space:nowrap">${cumul}</span>
         </div>
       </div>
-    </div>
+    </div>` : `<div class="empty">Aucun dividende ni intérêt dans tes opérations. Ils apparaîtront ici dès qu'un relevé en contiendra.</div>`}
   </div>`;
 }
 
-/* ---------- répartition ---------- */
-function allocRows(){
-  const a = snap?.allocation || { titre:[], classe:[] };
-  if (state.tab === 'secteur') return SECTEURS[state.env] || [];
-  if (state.env === 'Tout') return state.tab === 'classe' ? a.classe : a.titre;
+/* ---------- répartition : calculée sur tes lignes réelles ---------- */
+const ALLOC_TABS = [['titre','Par ligne'],['classe',"Par classe d'actifs"],['env','Par enveloppe'],['pays',"Par pays d'émission"]];
 
-  const c = compte(state.env);
-  const lines = c.lines.map(l => [l.name, l.value, l.classe]);
-  if (c.cash) lines.push(['Liquidités', c.cash, 'Liquidités']);
-  if (state.tab === 'classe'){
-    const by = {};
-    for (const [, v, k] of lines) by[k] = (by[k] || 0) + v;
-    return Object.entries(by).sort((x,y) => y[1] - x[1]).map(([k,v]) => [k, Math.round(v*100)/100]);
+function allocRows(){
+  const a = snap?.allocation || { titre:[], classe:[], pays:[], parEnveloppe:[] };
+  if (state.env === 'Tout') {
+    if (state.tab === 'classe') return a.classe;
+    if (state.tab === 'env') return a.parEnveloppe;
+    if (state.tab === 'pays') return a.pays || [];
+    return a.titre;
   }
-  return lines.map(([n,v]) => [n, v]).sort((x,y) => y[1] - x[1]);
+  const c = compte(state.env);
+  const lines = c.lines.map(l => [l.name, l.value, l.classe, window.PatrimoineCore.paysOf(l)]);
+  if (c.cash) lines.push(['Liquidités', c.cash, 'Liquidités', 'Liquidités']);
+  if (c.balance) lines.push([c.name, c.balance, 'Épargne garantie', 'Épargne garantie']);
+  const group = col => {
+    const by = {};
+    for (const r of lines) by[r[col]] = (by[r[col]] || 0) + r[1];
+    return Object.entries(by).map(([k, v]) => [k, Math.round(v * 100) / 100]).filter(r => r[1] > 0).sort((x, y) => y[1] - x[1]);
+  };
+  if (state.tab === 'classe') return group(2);
+  if (state.tab === 'pays') return group(3);
+  return lines.map(r => [r[0], r[1]]).filter(r => r[1] > 0).sort((x, y) => y[1] - x[1]);
+}
+
+/** Commentaire factuel, calculé sur les montants affichés. */
+function allocNote(rows, total){
+  if (!rows.length) return '';
+  const [name, v] = rows[0];
+  const pc = v / total * 100;
+  if (state.tab === 'pays') return 'Pays déduit du code ISIN : pays de la société pour une action, pays de domiciliation pour un fonds (sa composition réelle n\'est pas connue).';
+  const what = { titre:'La première ligne', classe:'La première classe', env:'La première enveloppe' }[state.tab] || 'Le premier poste';
+  const warn = state.tab === 'titre' && rows.length > 1 && pc > 25 ? ' — forte concentration sur un seul actif.' : '.';
+  return `${what}, « ${esc(name)} », pèse ${pctS(pc)} du total${warn}`;
 }
 
 function allocationCard(){
+  const envs = comptesList().filter(c => c.value > 0);
+  if (state.env !== 'Tout' && !envs.some(c => c.name === state.env)) state.env = 'Tout';
+  if (state.env !== 'Tout' && state.tab === 'env') state.tab = 'titre';
+  if (!ALLOC_TABS.some(([v]) => v === state.tab)) state.tab = 'titre';
+
   const rows = allocRows();
-  const total = rows.reduce((s,r) => s + r[1], 0) || 1;
-  const sh = state.seg;
-  const meta = EXPO_META[state.env];
+  const total = rows.reduce((s, r) => s + r[1], 0) || 1;
+  const sh = state.seg != null && state.seg < rows.length ? state.seg : null;
 
   let cum = 0;
-  const segs = rows.map((r,i) => {
+  const segs = rows.map((r, i) => {
     const pc = r[1] / total * 100;
     const start = cum; cum += pc;
     return {
       i, color:PAL[i % PAL.length], w: sh === i ? 6.6 : 5.4,
       dash: Math.max(0.1, pc - 0.4).toFixed(2) + ' ' + (100 - pc + 0.4).toFixed(2),
       off: (25 - start).toFixed(2),
-      label:r[0], pct:pctS(Math.round(pc*10)/10), amount:eur0(r[1]), pc, active: sh === i
+      label:r[0], pct:pctS(Math.round(pc * 10) / 10), amount:eur0(r[1]), pc, active: sh === i
     };
   });
 
-  const tabs = [['titre','Par ligne'],['secteur','Par secteur'],['classe',"Par classe d'actifs"],['expo','Exposition réelle']]
-    .map(([v,l]) => `<div class="tab${state.tab === v ? ' on' : ''}" data-act="tab" data-arg="${v}">${l}</div>`).join('');
+  const tabs = ALLOC_TABS.filter(([v]) => !(v === 'env' && state.env !== 'Tout'))
+    .map(([v, l]) => `<div class="tab${state.tab === v ? ' on' : ''}" data-act="tab" data-arg="${v}">${l}</div>`).join('');
 
-  let body;
-  if (state.tab !== 'expo'){
-    const arcs = segs.map(s => `<circle cx="21" cy="21" r="15.9" fill="none" stroke="${s.color}" stroke-width="${s.w}" stroke-dasharray="${s.dash}" stroke-dashoffset="${s.off}" data-hover="seg" data-hval="${s.i}" style="cursor:pointer"></circle>`).join('');
-    const list = segs.map(s => `
-      <div class="seg-row${s.active ? ' on' : ''}" data-hover="seg" data-hval="${s.i}">
-        <span class="sq" style="width:10px;height:10px;border-radius:2px;background:${s.color};display:inline-block;flex:none"></span>
-        <span style="font-size:14px;font-weight:500;flex:1">${esc(s.label)}</span>
-        <div style="width:120px;height:6px;border-radius:3px;background:var(--line3)"><div style="width:${Math.max(2,s.pc)}%;height:100%;border-radius:3px;background:${s.color}"></div></div>
-        <span class="mono" style="font-size:14px;font-weight:500;width:64px;text-align:right;white-space:nowrap">${s.pct}</span>
-        <span class="mono" style="font-size:14px;color:var(--mut);width:104px;text-align:right;white-space:nowrap">${s.amount}</span>
-      </div>`).join('');
+  const arcs = segs.map(s => `<circle cx="21" cy="21" r="15.9" fill="none" stroke="${s.color}" stroke-width="${s.w}" stroke-dasharray="${s.dash}" stroke-dashoffset="${s.off}" data-hover="seg" data-hval="${s.i}" style="cursor:pointer"></circle>`).join('');
+  const list = segs.map(s => `
+    <div class="seg-row${s.active ? ' on' : ''}" data-hover="seg" data-hval="${s.i}">
+      <span class="sq" style="width:10px;height:10px;border-radius:2px;background:${s.color};display:inline-block;flex:none"></span>
+      <span style="font-size:14px;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.label)}</span>
+      <div style="width:120px;height:6px;border-radius:3px;background:var(--line3);flex:none"><div style="width:${Math.max(2, s.pc)}%;height:100%;border-radius:3px;background:${s.color}"></div></div>
+      <span class="mono" style="font-size:14px;font-weight:500;width:64px;text-align:right;white-space:nowrap">${s.pct}</span>
+      <span class="mono" style="font-size:14px;color:var(--mut);width:104px;text-align:right;white-space:nowrap">${s.amount}</span>
+    </div>`).join('');
 
-    body = `
-      <div class="grid" style="grid-template-columns:260px 1fr;gap:40px;align-items:center;margin-top:28px">
-        <div data-leave="seg" style="position:relative;width:236px;height:236px">
-          <svg width="236" height="236" viewBox="0 0 42 42" style="display:block">
-            <circle cx="21" cy="21" r="15.9" fill="none" stroke="#f2f3f5" stroke-width="5.4"></circle>
-            ${arcs}
-          </svg>
-          <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;padding:0 34px;text-align:center">
-            <div class="mono" style="font-size:30px;font-weight:500;letter-spacing:-.8px;white-space:nowrap">${sh === null ? pctS(100) : segs[sh].pct}</div>
-            <div style="font-size:13px;color:var(--mut);margin-top:2px;line-height:1.3">${sh === null ? (state.tab === 'titre' ? 'du patrimoine' : state.tab === 'secteur' ? 'réparti par secteur' : 'réparti par classe') : esc(segs[sh].label)}</div>
-            <div class="mono" style="font-size:13px;margin-top:6px;white-space:nowrap">${sh === null ? eur0(total) : segs[sh].amount}</div>
-          </div>
-        </div>
-        <div data-leave="seg" style="display:flex;flex-direction:column;gap:2px">
-          ${list || '<div class="empty">Aucune ligne — importe un relevé de positions.</div>'}
-          <div style="font-size:13px;color:var(--mut2);margin-top:12px;padding-top:12px;border-top:1px solid var(--line2)">${NOTES[state.env][state.tab === 'expo' ? 'titre' : state.tab]}</div>
-        </div>
-      </div>`;
-  } else {
-    const cols = '1.4fr 130px 130px 130px 96px';
-    const base = compte(state.env === 'Tout' ? null : state.env);
-    const denom = state.env === 'Tout' ? (T().patrimoine || 1) : (base.value || 1);
-    const list = (EXPO[state.env] || []).map(r => {
-      const tot = r[1] + r[2], pc = tot / denom * 100, dup = r[1] > 0 && r[2] > 0;
-      return `
-      <div class="tr" style="display:grid;grid-template-columns:${cols};padding:13px 0">
-        <div>
-          <div style="display:flex;align-items:center;gap:10px">
-            <span style="font-size:14px;font-weight:600">${esc(r[0])}</span>
-            <span style="background:${dup ? '#fff0f1' : 'var(--line2)'};color:${dup ? 'var(--red)' : 'var(--mut)'};border-radius:100px;padding:3px 9px;font-size:11px;font-weight:600;letter-spacing:.03em;white-space:nowrap">${dup ? 'Doublon direct + ETF' : (r[1] > 0 ? 'En direct' : 'Via ETF uniquement')}</span>
-          </div>
-          <div style="display:flex;height:5px;border-radius:3px;overflow:hidden;gap:2px;width:190px;margin-top:7px">
-            <div style="flex:${Math.max(r[1],0.5)};background:var(--ink)"></div><div style="flex:${Math.max(r[2],0.5)};background:var(--mut3)"></div>
-          </div>
-          <div style="font-size:12px;color:var(--mut2);margin-top:6px">${esc(r[3])}</div>
-        </div>
-        <span class="mono" style="font-size:14px;text-align:right;white-space:nowrap">${r[1] === 0 ? '—' : eur(r[1])}</span>
-        <span class="mono" style="font-size:14px;text-align:right;color:var(--mut);white-space:nowrap">${r[2] === 0 ? '—' : '+' + eur(r[2])}</span>
-        <span class="mono" style="font-size:14px;font-weight:600;text-align:right;white-space:nowrap">${eur(tot)}</span>
-        <span class="mono" style="font-size:14px;font-weight:600;text-align:right;color:${pc >= 20 ? 'var(--red)' : 'var(--ink)'};white-space:nowrap">${pctS(Math.round(pc*10)/10)}</span>
-      </div>`;
-    }).join('');
-
-    body = `
-      <div class="alert">
-        <div class="bang">!</div>
-        <div>
-          <div style="font-size:14px;font-weight:600">${esc(meta.title)}</div>
-          <div style="font-size:13px;color:var(--mut);line-height:1.55;margin-top:3px">${esc(meta.body)}</div>
-        </div>
-      </div>
-      <div class="scroll-x">
-        <div class="thead" style="display:grid;grid-template-columns:${cols};padding:20px 0 10px;border-bottom:1px solid var(--line)">
-          <span class="th">Sous-jacent</span><span class="th r">En direct</span><span class="th r">Via ETF / UC</span><span class="th r">Exposition réelle</span><span class="th r">% portef.</span>
-        </div>
-        ${list}
-      </div>
-      <div class="grid" style="grid-template-columns:1fr 1fr;margin-top:20px">
-        <div style="border:1px solid var(--line);border-radius:16px;padding:18px 20px">
-          <div style="font-size:13px;color:var(--mut2)">Chevauchement entre supports</div>
-          <div class="mono" style="font-size:26px;font-weight:500;margin-top:6px">${meta.overlap}</div>
-          <div style="font-size:13px;color:var(--mut);line-height:1.55;margin-top:6px">${esc(meta.overlapNote)}</div>
-        </div>
-        <div style="border:1px solid var(--line);border-radius:16px;padding:18px 20px">
-          <div style="font-size:13px;color:var(--mut2)">Poids réel des 5 premières positions</div>
-          <div class="mono" style="font-size:26px;font-weight:500;margin-top:6px">${meta.top5}</div>
-          <div class="track" style="margin-top:10px"><div class="fill" style="width:${Math.min(100,meta.top5Bar)}%;background:${meta.top5Bar > 60 ? 'var(--red)' : 'var(--blue)'}"></div></div>
-          <div style="font-size:13px;color:var(--mut);line-height:1.55;margin-top:8px">${esc(meta.top5Note)}</div>
-        </div>
-      </div>`;
-  }
+  const centerLabel = { titre:'du patrimoine', classe:'réparti par classe', env:'réparti par enveloppe', pays:'réparti par pays' }[state.tab];
 
   return `
   <div class="card lg">
     <div class="head-block">
       <div>
-        <div class="card-t">Répartition &amp; exposition</div>
-        <div class="card-s">À quoi ton argent est réellement exposé, et dans quelle proportion</div>
+        <div class="card-t">Répartition</div>
+        <div class="card-s">Où est ton argent, et dans quelle proportion</div>
       </div>
-      ${segControl([
-        {value:'Tout',label:'Tout',small:true},{value:'PEA',label:'PEA',small:true},{value:'Assurance Vie',label:'Assurance Vie',small:true}
-      ], state.env, 'env')}
+      ${segControl([{ value:'Tout', label:'Tout', small:true }, ...envs.map(c => ({ value:c.name, label:c.name, small:true }))], state.env, 'env')}
     </div>
     <div class="tabs">${tabs}</div>
-    ${body}
+    ${rows.length ? `
+    <div class="grid" style="grid-template-columns:260px 1fr;gap:40px;align-items:center;margin-top:28px">
+      <div data-leave="seg" style="position:relative;width:236px;height:236px">
+        <svg width="236" height="236" viewBox="0 0 42 42" style="display:block">
+          <circle cx="21" cy="21" r="15.9" fill="none" stroke="#f2f3f5" stroke-width="5.4"></circle>
+          ${arcs}
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none;padding:0 34px;text-align:center">
+          <div class="mono" style="font-size:30px;font-weight:500;letter-spacing:-.8px;white-space:nowrap">${sh === null ? pctS(100) : segs[sh].pct}</div>
+          <div style="font-size:13px;color:var(--mut);margin-top:2px;line-height:1.3">${sh === null ? centerLabel : esc(segs[sh].label)}</div>
+          <div class="mono" style="font-size:13px;margin-top:6px;white-space:nowrap">${sh === null ? eur0(total) : segs[sh].amount}</div>
+        </div>
+      </div>
+      <div data-leave="seg" style="display:flex;flex-direction:column;gap:2px;min-width:0">
+        ${list}
+        <div style="font-size:13px;color:var(--mut2);margin-top:12px;padding-top:12px;border-top:1px solid var(--line2);line-height:1.5">${allocNote(rows, total)}</div>
+      </div>
+    </div>` : `<div class="empty">Aucune ligne pour l'instant — ajoute une ligne ou importe un relevé.</div>`}
   </div>`;
 }
 
-/* ---------- enveloppes ---------- */
-function enveloppeCard(name, view, mono, sub, tagLabel, extra){
-  const c = compte(name);
+/* ---------- enveloppes : une carte par enveloppe réellement présente ---------- */
+function enveloppeCard(c){
+  const kind = kindOf(c);
   const gain = Math.max(0.5, Math.abs(c.pv)), base = Math.max(0.5, c.mise);
-  return `
-  <div class="card enveloppe" data-act="view" data-arg="${view}">
-    <div style="display:flex;align-items:center;justify-content:space-between">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div class="avatar" style="width:36px;height:36px;font-size:13px;color:var(--ink)">${mono}</div>
-        <div><div style="font-size:16px;font-weight:600">${name}</div><div style="font-size:12px;color:var(--mut2)">${sub}</div></div>
+  const row = (k, v) => `<div style="display:flex;justify-content:space-between;gap:12px"><span style="font-size:13px;color:var(--mut)">${k}</span><span style="font-size:13px;font-weight:500;text-align:right;min-width:0">${v}</span></div>`;
+  const gauge = (used, cap, label) => `
+    <div style="border-top:1px solid var(--line2);padding-top:14px">
+      <div style="display:flex;justify-content:space-between;margin-bottom:7px"><span style="font-size:12px;color:var(--mut2)">${label}</span><span class="mono" style="font-size:12px;font-weight:500;color:var(--mut)">${Math.round(used).toLocaleString('fr-FR')} / ${cap.toLocaleString('fr-FR')} €</span></div>
+      <div class="track" style="background:var(--line2)"><div class="fill" style="width:${Math.max(0, Math.min(100, used / cap * 100)).toFixed(1)}%"></div></div>
+    </div>`;
+
+  let sub, tag, extra;
+  if (kind === 'solde') {
+    sub = 'Épargne disponible'; tag = 'Garanti';
+    extra = `<div style="display:flex;flex-direction:column;gap:7px">
+        ${row(`Intérêts ${new Date().getFullYear()} estimés`, c.interets ? `<span class="mono pos">${sEur(c.interets)}</span>` : '—')}
+        ${row('Taux renseigné', c.taux ? `<span class="mono">${pctS(c.taux)}</span>` : '—')}
+      </div>${c.plafond ? gauge(c.balance ?? c.value, c.plafond, 'Plafond réglementaire') : ''}`;
+  } else if (kind === 'contrat') {
+    const euro = c.lines.filter(l => l.classe === 'Fonds euro').reduce((s, l) => s + l.value, 0) + (c.balance || 0);
+    const uc = c.value - euro - (c.cash || 0);
+    sub = `${c.lines.length} support${c.lines.length > 1 ? 's' : ''}`; tag = 'Contrat';
+    extra = `<div style="display:flex;flex-direction:column;gap:7px">
+        ${row('Unités de compte', `${pctS(c.value ? uc / c.value * 100 : 0)} · <span class="mono">${eur(uc)}</span>`)}
+        ${row('Fonds euro', `${pctS(c.value ? euro / c.value * 100 : 0)} · <span class="mono">${eur(euro)}</span>`)}
       </div>
-      <span class="tag">${tagLabel}</span>
+      <div style="border-top:1px solid var(--line2);padding-top:14px">
+        <div style="display:flex;justify-content:space-between;margin-bottom:7px"><span style="font-size:12px;color:var(--mut2)">Antériorité fiscale</span><span class="mono" style="font-size:12px;font-weight:500;color:var(--mut)">${anciennete(c.name)} / 8 ans</span></div>
+        <div class="track" style="background:var(--line2)"><div class="fill" style="width:${anciennetePct(c.name, 8)}%"></div></div>
+      </div>`;
+  } else {
+    const byPct = [...c.lines].sort((a, b) => b.pct - a.pct);
+    const best = byPct[0], worst = byPct[byPct.length - 1];
+    sub = `${c.lines.length} ligne${c.lines.length > 1 ? 's' : ''}${c.cash ? ' + liquidités' : ''}`; tag = 'Titres';
+    extra = `<div style="display:flex;flex-direction:column;gap:7px">
+        ${row('Meilleure ligne', best ? esc(best.name) + ` <span class="mono ${cls(best.pct)}">${sPct(best.pct)}</span>` : '—')}
+        ${row('Moins bonne', worst && worst !== best ? esc(worst.name) + ` <span class="mono ${cls(worst.pct)}">${sPct(worst.pct)}</span>` : '—')}
+      </div>${c.plafond ? gauge(c.mise, c.plafond, 'Plafond de versement') : ''}`;
+  }
+
+  return `
+  <div class="card enveloppe" data-act="view" data-arg="${esc('c:' + c.name)}">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <div class="avatar" style="width:36px;height:36px;font-size:13px;color:var(--ink);flex:none">${esc(monoOf(c.name))}</div>
+        <div style="min-width:0"><div style="font-size:16px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</div><div style="font-size:12px;color:var(--mut2)">${sub}</div></div>
+      </div>
+      <span class="tag">${tag}</span>
     </div>
     <div>
       <div class="mono" style="font-size:28px;font-weight:500;letter-spacing:-.6px">${eur(c.value)}</div>
       <div style="display:flex;gap:14px;margin-top:6px;flex-wrap:wrap">
-        <span style="font-size:13px;color:var(--mut)">${c.garanti ? 'Capital garanti' : 'Mise'} ${c.garanti ? '' : `<span class="mono" style="font-weight:500;color:var(--ink)">${eur(c.mise)}</span>`}</span>
-        <span class="mono ${cls(c.pv)}" style="font-size:13px;font-weight:500">${c.garanti ? pctS((c.value / (T().patrimoine || 1)) * 100) + ' du patrimoine' : `${sEur(c.pv)} · ${sPct(c.pvPct)}`}</span>
+        ${kind === 'solde'
+          ? `<span class="mono" style="font-size:13px;color:var(--mut)">${pctS((c.value / (T().patrimoine || 1)) * 100)} du patrimoine</span>`
+          : `<span style="font-size:13px;color:var(--mut)">Mise <span class="mono" style="font-weight:500;color:var(--ink)">${eur(c.mise)}</span></span>
+             <span class="mono ${cls(c.pv)}" style="font-size:13px;font-weight:500">${sEur(c.pv)} · ${sPct(c.pvPct)}</span>`}
       </div>
     </div>
     <div class="split" style="height:8px"><div style="flex:${base};background:var(--line2)"></div>${c.pv ? `<div style="flex:${gain};background:${c.pv >= 0 ? 'var(--green)' : 'var(--red)'}"></div>` : ''}</div>
-    ${extra(c)}
+    ${extra}
   </div>`;
 }
 
 function enveloppeCards(){
-  const perf = perfPeriod(state.period);
-  const pea = compte('PEA'), av = compte('Assurance Vie'), la = compte('Livret A');
-  const best = pea.lines[0], worst = pea.lines[pea.lines.length - 1];
-  const uc = av.lines.filter(l => l.classe !== 'Fonds euro').reduce((s,l) => s + l.value, 0);
-  const euro = av.value - uc;
-
-  const plafond = (used, cap, label) => `
-    <div style="border-top:1px solid var(--line2);padding-top:14px">
-      <div style="display:flex;justify-content:space-between;margin-bottom:7px"><span style="font-size:12px;color:var(--mut2)">${label}</span><span class="mono" style="font-size:12px;font-weight:500;color:var(--mut)">${Math.round(used).toLocaleString('fr-FR')} / ${cap.toLocaleString('fr-FR')} €</span></div>
-      <div class="track" style="background:var(--line2)"><div class="fill" style="width:${Math.min(100, used/cap*100).toFixed(1)}%"></div></div>
-    </div>`;
-
+  const envs = comptesList();
+  const win = periodWindow(state.period);
   return `
   <div>
-    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px">
-      <div class="card-t">Suivi par enveloppe fiscale</div>
-      <span style="font-size:13px;color:var(--mut2)">Performance sur la période :
-        <span class="mono ${cls(T().pv)}" style="font-weight:500">${perf[0]}</span>
-        <span class="mono ${cls(T().pv)}" style="font-weight:500">${perf[1]}</span>
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:14px;gap:12px;flex-wrap:wrap">
+      <div class="card-t">Suivi par enveloppe</div>
+      <span style="font-size:13px;color:var(--mut2)">Performance ${win.label} :
+        <span class="mono ${cls(win.gain)}" style="font-weight:500">${sEur(win.gain)}</span>
+        <span class="mono ${cls(win.gain)}" style="font-weight:500">${sPct(win.pct)}</span>
       </span>
     </div>
-    <div class="grid" style="grid-template-columns:repeat(3,1fr)">
-      ${enveloppeCard('PEA','pea','PEA', `Bourse Direct · ${pea.lines.length} lignes`, 'Actions', c => `
-        <div style="display:flex;flex-direction:column;gap:7px">
-          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Meilleure ligne</span><span style="font-size:13px;font-weight:500">${best ? esc(best.name) + ` <span class="mono ${cls(best.pct)}">${sPct(best.pct)}</span>` : '—'}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Moins bonne</span><span style="font-size:13px;font-weight:500">${worst && worst !== best ? esc(worst.name) + ` <span class="mono ${cls(worst.pct)}">${sPct(worst.pct)}</span>` : '—'}</span></div>
-        </div>
-        ${plafond(c.mise, PLAFOND_PEA, 'Plafond de versement')}`)}
-
-      ${enveloppeCard('Assurance Vie','av','AV', `Linxea Spirit 2 · ${av.lines.length} supports`, 'Mixte', c => `
-        <div style="display:flex;flex-direction:column;gap:7px">
-          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Unités de compte</span><span style="font-size:13px;font-weight:500">${pctS(c.value ? uc/c.value*100 : 0)} · <span class="mono">${eur(uc)}</span></span></div>
-          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Fonds euro</span><span style="font-size:13px;font-weight:500">${pctS(c.value ? euro/c.value*100 : 0)} · <span class="mono">${eur(euro)}</span></span></div>
-        </div>
-        <div style="border-top:1px solid var(--line2);padding-top:14px">
-          <div style="display:flex;justify-content:space-between;margin-bottom:7px"><span style="font-size:12px;color:var(--mut2)">Antériorité fiscale</span><span class="mono" style="font-size:12px;font-weight:500;color:var(--mut)">${anciennete('Assurance Vie')} / 8 ans</span></div>
-          <div class="track" style="background:var(--line2)"><div class="fill" style="width:${anciennetePct('Assurance Vie', 8)}%"></div></div>
-        </div>`)}
-
-      ${enveloppeCard('Livret A','livret','LA','Épargne de précaution','Garanti', c => `
-        <div style="display:flex;flex-direction:column;gap:7px">
-          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Intérêts ${new Date().getFullYear()} estimés</span><span class="mono pos" style="font-size:13px;font-weight:500">${c.interets ? sEur(c.interets) : '—'}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Taux en vigueur</span><span class="mono" style="font-size:13px;font-weight:500">${c.taux ? pctS(c.taux).replace('.',',') : '—'}</span></div>
-        </div>
-        ${plafond(c.value, PLAFOND_LIVRET_A, 'Plafond réglementaire')}`)}
-    </div>
+    ${envs.length
+      ? `<div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">${envs.map(enveloppeCard).join('')}</div>`
+      : `<div class="card"><div class="empty">Aucune enveloppe. <span class="link" data-act="modal" data-arg="1">Ajoute ta première ligne →</span></div></div>`}
   </div>`;
 }
 
@@ -1077,14 +963,14 @@ function recentOpsAndSide(){
   const rows = ops.length ? ops.map((o,i) => `
     <div style="display:grid;grid-template-columns:${cols};align-items:center;padding:12px 0${i < ops.length-1 ? ';border-bottom:1px solid var(--bg)' : ''}">
       <span class="mono" style="font-size:13px;color:var(--mut)">${frDate(o.date)}</span>
-      <span style="font-size:14px;font-weight:500">${esc(o.libelle)}</span>
+      <span style="font-size:14px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.libelle)}</span>
       <span style="font-size:13px;color:var(--mut)">${esc(o.compte)}</span>
-      <span class="mono ${o.type === 'Dividende' ? 'pos' : ''}" style="font-size:14px;font-weight:500;text-align:right">${sEur(o.montant)}</span>
+      <span class="mono ${o.type === 'Dividende' ? 'pos' : ''}" style="font-size:14px;font-weight:500;text-align:right">${sEur(opAmount(o))}</span>
     </div>`).join('') : '<div class="empty">Aucune opération importée.</div>';
 
   const t = T();
   const goal = settings().goal;
-  const projection = CONFIG.showProjection ? `
+  const projection = `
     <div class="card">
       <div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px">
         <div class="card-t">Projection${goal ? ` · objectif ${eur0(goal)}` : ''}</div>
@@ -1100,24 +986,28 @@ function recentOpsAndSide(){
       <div style="display:flex;justify-content:space-between;margin-top:14px;padding-top:14px;border-top:1px solid var(--line2)">
         ${[[4,'Prudent 4 %'],[8,'Central 8 %'],[12,'Optimiste 12 %']].map(([r,l]) =>
           `<div><div style="font-size:12px;color:var(--mut2)">${l}</div><div class="mono" style="font-size:14px;font-weight:500${r === 8 ? ';color:var(--blue)' : ''}">${targetDate(r)}</div></div>`).join('')}
-      </div>` : ''}
-    </div>` : '';
+      </div>
+      <div style="font-size:11px;color:var(--mut3);margin-top:10px">Simulation, pas une prévision : les rendements passés ne préjugent pas des rendements futurs.</div>` : ''}
+    </div>`;
 
-  const pea = compte('PEA');
-  const psLatent = Math.max(0, pea.pv) * PS_RATE;
-  // Échéances fiscales calculées depuis la première opération de l'enveloppe.
-  // Elles étaient auparavant écrites en dur (« nov. 2030 »), donc fausses pour
-  // tout autre portefeuille que celui de la maquette.
-  const matPea = maturity('PEA', 5), matAv = maturity('Assurance Vie', 8);
-  const fiscalite = CONFIG.showFiscalite ? `
+  // Fiscalité : seulement pour les enveloppes présentes, échéances calculées
+  // depuis leur première opération réelle.
+  const envs = comptesList();
+  const has = re => envs.filter(c => re.test(c.name));
+  const lignesFisc = [];
+  for (const c of has(/^pea/i)) lignesFisc.push([`Maturité ${esc(c.name)} (5 ans)`, maturity(c.name, 5).label]);
+  for (const c of has(/assurance|vie/i)) lignesFisc.push([`Abattement ${esc(c.name)} (8 ans)`, maturity(c.name, 8).label]);
+  for (const c of envs.filter(c => kindOf(c) === 'solde' && /livret|ldds|lep/i.test(c.name))) lignesFisc.push([esc(c.name), '<span class="pos">Exonéré d\'impôt et de PS</span>']);
+  const peaPv = has(/^pea/i).reduce((s, c) => s + Math.max(0, c.pv), 0);
+  const psLatent = peaPv * PS_RATE;
+  const fiscalite = lignesFisc.length || psLatent ? `
     <div class="card">
       <div class="card-t">Fiscalité</div>
       <div style="display:flex;flex-direction:column;gap:14px;margin-top:16px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;color:var(--mut)">Maturité PEA (5 ans)</span><span style="font-size:14px;font-weight:500">${matPea.label}</span></div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;color:var(--mut)">Abattement AV (8 ans)</span><span style="font-size:14px;font-weight:500">${matAv.label}</span></div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;color:var(--mut)">Livret A</span><span class="pos" style="font-size:14px;font-weight:500">Exonéré d'impôt et de PS</span></div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;color:var(--mut)">PS ${pctS(PS_RATE*100)} sur latents PEA</span><span class="mono neg" style="font-size:14px;font-weight:500">−${num2(psLatent)} €</span></div>
-        <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:14px;border-top:1px solid var(--line2)"><span style="font-size:14px;font-weight:600">Gain net si retrait aujourd'hui</span><span class="mono ${cls(t.pv)}" style="font-size:16px;font-weight:500">${sEur((t.pv || 0) - psLatent)}</span></div>
+        ${lignesFisc.map(([k, v]) => `<div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px"><span style="font-size:14px;color:var(--mut)">${k}</span><span style="font-size:14px;font-weight:500;text-align:right">${v}</span></div>`).join('')}
+        ${psLatent ? `
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:14px;color:var(--mut)">PS ${pctS(PS_RATE*100)} sur gains latents PEA</span><span class="mono neg" style="font-size:14px;font-weight:500">−${num2(psLatent)} €</span></div>
+        <div style="display:flex;justify-content:space-between;align-items:baseline;padding-top:14px;border-top:1px solid var(--line2)"><span style="font-size:14px;font-weight:600">Gain net si retrait aujourd'hui</span><span class="mono ${cls(t.pv)}" style="font-size:16px;font-weight:500">${sEur((t.pv || 0) - psLatent)}</span></div>` : ''}
       </div>
     </div>` : '';
 
@@ -1203,15 +1093,17 @@ function projectionPaths(){
 
 /* ---------- import ---------- */
 function reportBox(){
-  if (state.importing) return `<div class="report busy"><span class="spin"></span>Import en cours…</div>`;
+  if (state.importing) return `<div class="report busy"><span class="spin"></span>Enregistrement en cours…</div>`;
   const r = state.report;
   if (!r) return '';
-  if (r.error) return `<div class="report err"><strong>Import refusé.</strong><br>${esc(r.error)}</div>`;
+  const offlineNote = r.pending ? ' · enregistré sur cet appareil, synchronisé dès le retour du réseau' : '';
+  if (r.error) return `<div class="report err" role="alert"><strong>${esc(r.title || 'Enregistrement impossible')}.</strong><br>${esc(r.error)}</div>`;
+  if (r.message) return `<div class="report ok" role="status">${esc(r.message)}${offlineNote}.</div>`;
   const d = r.report;
   const detail = d.kind === 'operations'
     ? `${d.added} opération(s) ajoutée(s)${d.duplicates ? `, ${d.duplicates} doublon(s) ignoré(s)` : ''}`
     : `${d.added} ligne(s) ajoutée(s), ${d.updated} mise(s) à jour${d.removed ? `, ${d.removed} soldée(s)` : ''}`;
-  return `<div class="report ok"><strong>${esc(d.file)} importé.</strong><br>${detail}${d.skipped ? ` · ${d.skipped} ligne(s) non exploitable(s)` : ''} · portefeuille revalorisé.</div>`;
+  return `<div class="report ok" role="status"><strong>${esc(d.file)} importé.</strong><br>${detail}${d.skipped ? ` · ${d.skipped} ligne(s) non exploitable(s) ignorée(s)` : ''}${offlineNote}.</div>`;
 }
 
 function importCard(){
@@ -1232,9 +1124,9 @@ function importCard(){
       </div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div class="th" style="margin-bottom:2px;font-size:12px">Cotations</div>
-        <div class="conn"><div style="display:flex;align-items:center;gap:10px"><span class="live-dot" style="background:${conn.status === 'live' ? 'var(--green)' : conn.status === 'partial' ? 'var(--amber)' : 'var(--mut3)'}"></span><span style="font-size:14px;font-weight:500">${esc(snap?.quotes?.provider || 'hors ligne')}</span></div><span class="mono ${conn.status === 'offline' ? 'muted' : 'pos'}" style="font-size:12px">${conn.status === 'live' ? 'en direct' : conn.status === 'partial' ? 'partiel' : 'déconnecté'}</span></div>
-        ${(snap?.quotes?.failed || []).slice(0,3).map(f => `<div class="conn"><span style="font-size:13px">${esc(f.name)}</span><span class="mono muted" style="font-size:12px">${esc(f.reason)}</span></div>`).join('')}
-        <div class="conn"><div style="display:flex;align-items:center;gap:10px"><span class="live-dot" style="background:var(--mut3)"></span><span style="font-size:14px;font-weight:500">Livret A · solde manuel</span></div><span class="link" data-act="modal" data-arg="1">Mettre à jour</span></div>
+        <div class="conn"><div style="display:flex;align-items:center;gap:10px"><span class="live-dot" style="background:${snap?.live ? (conn.status === 'partial' ? 'var(--amber)' : 'var(--green)') : 'var(--mut3)'}"></span><span style="font-size:14px;font-weight:500">${snap?.live ? 'Cotations en direct' : 'Derniers cours connus'}</span></div><span class="mono ${snap?.live ? 'pos' : 'muted'}" style="font-size:12px">${snap?.live ? (conn.status === 'partial' ? 'partiel' : 'à jour') : 'en attente'}</span></div>
+        ${(snap?.quotes?.failed || []).slice(0,3).map(f => `<div class="conn"><span style="font-size:13px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span><span class="mono muted" style="font-size:12px;flex:none">${esc(f.reason)}</span></div>`).join('')}
+        ${comptesList().filter(c => kindOf(c) === 'solde').map(c => `<div class="conn"><div style="display:flex;align-items:center;gap:10px;min-width:0"><span class="live-dot" style="background:var(--mut3)"></span><span style="font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)} · solde manuel</span></div><span class="link" data-act="editBalance" data-arg="${esc(c.name)}">Mettre à jour</span></div>`).join('')}
       </div>
       <div style="display:flex;flex-direction:column;gap:8px">
         <div class="th" style="margin-bottom:2px;font-size:12px">Historique</div>
@@ -1255,121 +1147,179 @@ function viewGlobal(){
 }
 
 /* ============================================================
-   Vue PEA
+   Vues par enveloppe — une seule logique pour toutes les enveloppes
+   (PEA, CTO, assurance vie, PER, livrets…), choisie selon leur nature.
    ============================================================ */
-function viewPea(){
-  const c = compte('PEA');
-  const cols = '1.6fr 70px 100px 100px 110px 110px 90px';
-  const rows = c.lines.map(l => `
-    <div class="tr" style="display:grid;grid-template-columns:${cols};padding:14px 0">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div class="avatar" style="width:32px;height:32px;font-size:11px;color:var(--ink);flex:none">${esc(monoOf(l.name))}</div>
-        <div><div style="font-size:14px;font-weight:600">${esc(l.name)}</div><div style="font-size:12px;color:var(--mut2)">${esc([l.symbol || l.ticker, l.cat, l.live ? 'cotation en direct' : 'dernier cours connu'].filter(Boolean).join(' · '))}</div></div>
+const kpiBox = (l, v, k) => `<div class="card" style="padding:22px"><div class="kpi-l">${l}</div><div class="kpi-v ${k || ''}" style="margin-top:8px">${v}</div></div>`;
+const lineIdx = l => (snap?.lines || []).indexOf(l);
+const lineActions = l => `
+  <span style="display:flex;gap:10px;justify-content:flex-end">
+    <span class="link" style="font-size:12px;cursor:pointer" data-act="editPos" data-arg="${lineIdx(l)}">Modifier</span>
+    <span style="font-size:12px;font-weight:600;color:var(--red);cursor:pointer" data-act="delPos" data-arg="${lineIdx(l)}">Suppr.</span>
+  </span>`;
+
+/** Dividendes encaissés sur une enveloppe pour l'année en cours (toujours positifs). */
+function divFor(name){
+  const y = String(new Date().getFullYear());
+  return (snap?.operations || []).filter(o => o.compte === name && o.type === 'Dividende' && o.date.startsWith(y))
+    .reduce((s, o) => s + Math.abs(o.montant), 0);
+}
+/** Versements réels sur une enveloppe (somme des versements et ouvertures). */
+function versementsFor(name){
+  return (snap?.operations || []).filter(o => o.compte === name && (o.type === 'Versement' || o.type === 'Ouverture'))
+    .reduce((s, o) => s + Math.abs(o.montant), 0);
+}
+
+function crumb(name){
+  return `<div class="crumb"><span class="up" data-act="view" data-arg="global">Patrimoine</span><span class="sep">/</span><span class="cur">${esc(name)}</span></div>`;
+}
+
+function serieChart(name, c){
+  const serie = serieFor(name);
+  const ch = chart(serie, 640, 220, 24);
+  return `
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap">
+        <div class="card-t">Mise versus valeur</div>
+        <div style="display:flex;gap:16px">
+          <div class="legend" style="font-size:12px"><span class="swatch" style="background:var(--green)"></span><span>Valeur</span></div>
+          <div class="legend" style="font-size:12px"><span class="swatch" style="background:var(--mut3)"></span><span>Capital versé</span></div>
+        </div>
       </div>
-      <span class="mono" style="font-size:14px;text-align:right">${l.qty}</span>
+      ${ch ? `<svg width="100%" height="220" viewBox="0 0 640 220" preserveAspectRatio="none" style="margin-top:18px;display:block">
+        <line x1="0" y1="40" x2="640" y2="40" stroke="#eef0f3"/><line x1="0" y1="100" x2="640" y2="100" stroke="#eef0f3"/><line x1="0" y1="160" x2="640" y2="160" stroke="#eef0f3"/>
+        <path d="${ch.areaPath}" fill="${c.pv >= 0 ? '#05b169' : '#cf202f'}" fill-opacity="0.1"/>
+        <path d="${ch.capPath}" fill="none" stroke="#a8acb3" stroke-width="2" stroke-dasharray="5 4"/>
+        <path d="${ch.valPath}" fill="none" stroke="${c.pv >= 0 ? '#05b169' : '#cf202f'}" stroke-width="2.5" stroke-linejoin="round"/>
+        <circle cx="${ch.lastX - 4}" cy="${ch.lastY}" r="4" fill="${c.pv >= 0 ? '#05b169' : '#cf202f'}"></circle>
+      </svg>
+      <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--mut2)"><span>${monthLabel(serie[0].date)}</span><span>${monthLabel(serie[serie.length-1].date)}</span></div>`
+      : '<div class="empty">L\'historique de cette enveloppe se construit jour après jour, à chaque valorisation.</div>'}
+    </div>`;
+}
+
+function cashRow(c, cols){
+  if (!c.cash && rawCash()[c.name] == null) return '';
+  const derive = rawCash()[c.name] == null;
+  return `
+    <div class="tr" style="display:grid;grid-template-columns:${cols};padding:14px 0;align-items:center">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <div class="avatar" style="width:32px;height:32px;font-size:13px;color:var(--ink);flex:none">€</div>
+        <div style="min-width:0"><div style="font-size:14px;font-weight:600">Liquidités</div><div style="font-size:12px;color:var(--mut2);max-width:320px;white-space:normal;line-height:1.4">${derive ? esc(cashExplain(c.name)) : 'montant que tu as fixé'}</div></div>
+      </div>
+      <span></span><span></span><span></span>
+      <span class="mono" style="font-size:14px;font-weight:500;text-align:right">${eur(c.cash)}</span>
+      <span></span><span></span>
+      <span style="display:flex;gap:10px;justify-content:flex-end">
+        <span class="link" style="font-size:12px;cursor:pointer" data-act="editCash" data-arg="${esc(c.name)}">Modifier</span>
+        ${derive ? '' : `<span class="link" style="font-size:12px;cursor:pointer" data-act="resetCash" data-arg="${esc(c.name)}">Recalculer</span>`}
+      </span>
+    </div>`;
+}
+
+function headerBlock(name, sub){
+  return `
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap">
+      <div style="min-width:0">
+        <div class="title-xl">${esc(name)}</div>
+        <div class="title-sub">${sub}</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="btn btn-s" data-act="refreshNow">Actualiser</div>
+        <div class="btn btn-p" data-act="addTo" data-arg="${esc(name)}">Ajouter une ligne</div>
+      </div>
+    </div>`;
+}
+
+/** Enveloppe en titres : PEA, PEA-PME, CTO… */
+function viewTitres(name){
+  const c = compte(name);
+  const cols = '1.6fr 70px 100px 100px 110px 110px 90px 120px';
+  const rows = c.lines.map(l => `
+    <div class="tr" style="display:grid;grid-template-columns:${cols};padding:14px 0;align-items:center">
+      <div style="display:flex;align-items:center;gap:12px;min-width:0">
+        <div class="avatar" style="width:32px;height:32px;font-size:11px;color:var(--ink);flex:none">${esc(monoOf(l.name))}</div>
+        <div style="min-width:0"><div style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.name)}</div><div style="font-size:12px;color:var(--mut2)">${esc([l.symbol || l.ticker || l.isin, l.manual ? 'non coté' : (l.live ? 'cotation en direct' : 'dernier cours connu')].filter(Boolean).join(' · '))}</div></div>
+      </div>
+      <span class="mono" style="font-size:14px;text-align:right">${(l.qty ?? 0).toLocaleString('fr-FR', { maximumFractionDigits:6 })}</span>
       <span class="mono" style="font-size:14px;text-align:right">${eur(l.pru)}</span>
       <span class="mono" style="font-size:14px;text-align:right;color:var(--mut)">${eur(l.price)}</span>
       <span class="mono" style="font-size:14px;font-weight:500;text-align:right">${eur(l.value)}</span>
       <span class="mono ${cls(l.pv)}" style="font-size:14px;text-align:right">${sEur(l.pv)}</span>
       <span class="mono ${cls(l.pct)}" style="font-size:14px;font-weight:600;text-align:right">${sPct(l.pct)}</span>
-    </div>`).join('') || '<div class="empty">Aucune ligne — importe un relevé de positions.</div>';
+      ${lineActions(l)}
+    </div>`).join('');
 
-  const serie = serieFor('PEA');
-  const ch = chart(serie, 640, 220, 24);
-  const kpi = (l,v,k) => `<div class="card" style="padding:22px"><div class="kpi-l">${l}</div><div class="kpi-v ${k || ''}" style="margin-top:8px">${v}</div></div>`;
-  const divPea = (snap?.operations || []).filter(o => o.compte === 'PEA' && o.type === 'Dividende' && o.date.startsWith(String(new Date().getFullYear()))).reduce((s,o) => s + o.montant, 0);
-  const top2 = c.lines.slice(0,2).reduce((s,l) => s + l.value, 0);
+  const div = divFor(name);
+  const byValue = [...c.lines].sort((a, b) => b.value - a.value);
+  const top2 = byValue.slice(0, 2).reduce((s, l) => s + l.value, 0);
+  const versements = versementsFor(name);
+  const nbAchats = (snap?.operations || []).filter(o => o.compte === name && o.type === 'Achat').length;
 
   return `<div class="screen">
-    <div class="crumb"><span class="up" data-act="view" data-arg="global">Patrimoine</span><span class="sep">/</span><span class="cur">PEA</span></div>
-    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px">
-      <div>
-        <div class="title-xl">PEA · Bourse Direct</div>
-        <div class="title-sub">${c.lines.length} lignes · ${snap?.quotes?.provider ? 'cotations ' + esc(snap.quotes.provider) : 'hors ligne'} · valorisé ${new Date(snap?.asOf || Date.now()).toLocaleTimeString('fr-FR')}</div>
-      </div>
-      <div style="display:flex;gap:10px">
-        <div class="btn btn-s" data-act="refreshNow">Actualiser</div>
-        <div class="btn btn-p" data-act="modal" data-arg="1">Importer un relevé</div>
-      </div>
-    </div>
+    ${crumb(name)}
+    ${headerBlock(name, `${c.lines.length} ligne${c.lines.length > 1 ? 's' : ''} · ${snap?.live ? 'cotations en direct' : 'derniers cours connus'} · valorisé à ${new Date(snap?.asOf || Date.now()).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' })}`)}
 
-    <div class="grid" style="grid-template-columns:repeat(5,1fr)">
-      ${kpi('Valeur', eur(c.value))}${kpi('Mise', eur(c.mise))}${kpi('Plus-value', sEur(c.pv), cls(c.pv))}${kpi('Performance', sPct(c.pvPct), cls(c.pvPct))}${kpi('Dividendes ' + new Date().getFullYear(), sEur(divPea), 'pos')}
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+      ${kpiBox('Valeur', eur(c.value))}${kpiBox('Mise', eur(c.mise))}${kpiBox('Plus-value', sEur(c.pv), cls(c.pv))}${kpiBox('Performance', sPct(c.pvPct), cls(c.pvPct))}${kpiBox('Dividendes ' + new Date().getFullYear(), sEur(div), div ? 'pos' : '')}
     </div>
 
     <div class="grid" style="grid-template-columns:1.7fr 1fr">
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:baseline">
-          <div class="card-t">Mise versus valeur</div>
-          <div style="display:flex;gap:16px">
-            <div class="legend" style="font-size:12px"><span class="swatch" style="background:var(--green)"></span><span>Valeur</span></div>
-            <div class="legend" style="font-size:12px"><span class="swatch" style="background:var(--mut3)"></span><span>Capital versé</span></div>
-          </div>
-        </div>
-        ${ch ? `<svg width="100%" height="220" viewBox="0 0 640 220" preserveAspectRatio="none" style="margin-top:18px;display:block">
-          <line x1="0" y1="40" x2="640" y2="40" stroke="#eef0f3"/><line x1="0" y1="100" x2="640" y2="100" stroke="#eef0f3"/><line x1="0" y1="160" x2="640" y2="160" stroke="#eef0f3"/>
-          <path d="${ch.areaPath}" fill="${c.pv >= 0 ? '#05b169' : '#cf202f'}" fill-opacity="0.1"/>
-          <path d="${ch.capPath}" fill="none" stroke="#a8acb3" stroke-width="2" stroke-dasharray="5 4"/>
-          <path d="${ch.valPath}" fill="none" stroke="${c.pv >= 0 ? '#05b169' : '#cf202f'}" stroke-width="2.5" stroke-linejoin="round"/>
-          <circle cx="${ch.lastX - 4}" cy="${ch.lastY}" r="4" fill="${c.pv >= 0 ? '#05b169' : '#cf202f'}"></circle>
-        </svg>
-        <div style="display:flex;justify-content:space-between;margin-top:10px;font-size:11px;color:var(--mut2)"><span>${monthLabel(serie[0].date)}</span><span>${monthLabel(serie[serie.length-1].date)}</span></div>`
-        : '<div class="empty">Historique par enveloppe indisponible.</div>'}
-      </div>
+      ${serieChart(name, c)}
       <div style="display:flex;flex-direction:column;gap:16px">
+        ${c.plafond ? `
         <div class="card">
           <div style="font-size:15px;font-weight:600">Plafond de versement</div>
-          <div class="mono" style="font-size:24px;font-weight:500;margin-top:10px;letter-spacing:-.5px">${Math.round(c.mise).toLocaleString('fr-FR')} / 150 000 €</div>
-          <div style="height:10px;border-radius:5px;background:var(--line2);margin-top:12px"><div style="width:${Math.min(100, c.mise/PLAFOND_PEA*100).toFixed(1)}%;height:100%;border-radius:5px;background:var(--blue)"></div></div>
-          <div style="font-size:13px;color:var(--mut);margin-top:10px">${pctS(c.mise/PLAFOND_PEA*100)} utilisé · ${eur0(PLAFOND_PEA - c.mise)} encore versables</div>
-        </div>
+          <div class="mono" style="font-size:24px;font-weight:500;margin-top:10px;letter-spacing:-.5px">${Math.round(c.mise).toLocaleString('fr-FR')} / ${c.plafond.toLocaleString('fr-FR')} €</div>
+          <div style="height:10px;border-radius:5px;background:var(--line2);margin-top:12px"><div style="width:${Math.max(0, Math.min(100, c.mise / c.plafond * 100)).toFixed(1)}%;height:100%;border-radius:5px;background:var(--blue)"></div></div>
+          <div style="font-size:13px;color:var(--mut);margin-top:10px">${pctS(c.mise / c.plafond * 100)} utilisé · ${eur0(Math.max(0, c.plafond - c.mise))} encore versables</div>
+        </div>` : ''}
         <div class="card">
           <div style="font-size:15px;font-weight:600">Allocation</div>
+          ${c.value ? `
           <div class="split" style="height:10px;border-radius:5px;margin-top:14px">
-            ${c.lines.map((l,i) => `<div style="flex:${Math.max(1, l.value)};background:${PAL[(i+1) % 4 === 0 ? 3 : i+1] || '#dee1e6'}"></div>`).join('')}
-            ${c.cash ? `<div style="flex:${Math.max(1,c.cash)};background:var(--line)"></div>` : ''}
+            ${byValue.map((l, i) => `<div style="flex:${Math.max(1, l.value)};background:${PAL[i % PAL.length]}"></div>`).join('')}
+            ${c.cash ? `<div style="flex:${Math.max(1, c.cash)};background:var(--line)"></div>` : ''}
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
-            ${c.lines.map(l => `<div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">${esc(l.cat || l.name)}</span><span class="mono" style="font-size:13px;font-weight:500">${pctS(c.value ? l.value/c.value*100 : 0)}</span></div>`).join('')}
-            ${c.cash ? `<div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Liquidités</span><span class="mono" style="font-size:13px;font-weight:500">${pctS(c.value ? c.cash/c.value*100 : 0)}</span></div>` : ''}
-          </div>
+            ${byValue.map(l => `<div style="display:flex;justify-content:space-between;gap:12px"><span style="font-size:13px;color:var(--mut);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.name)}</span><span class="mono" style="font-size:13px;font-weight:500">${pctS(l.value / c.value * 100)}</span></div>`).join('')}
+            ${c.cash ? `<div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Liquidités</span><span class="mono" style="font-size:13px;font-weight:500">${pctS(c.cash / c.value * 100)}</span></div>` : ''}
+          </div>` : '<div class="empty">Enveloppe vide.</div>'}
         </div>
       </div>
     </div>
 
     <div class="card">
-      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px">
+      <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:16px;gap:12px;flex-wrap:wrap">
         <div class="card-t">Lignes du portefeuille</div>
         <span style="font-size:13px;color:var(--mut2)">Trié par plus-value décroissante</span>
       </div>
       <div class="scroll-x"><div class="thead" style="display:grid;grid-template-columns:${cols}">
-        <span class="th">Ligne</span><span class="th r">Qté</span><span class="th r">PRU</span><span class="th r">Cours</span><span class="th r">Valeur</span><span class="th r">± €</span><span class="th r">± %</span>
+        <span class="th">Ligne</span><span class="th r">Qté</span><span class="th r">PRU</span><span class="th r">Cours</span><span class="th r">Valeur</span><span class="th r">± €</span><span class="th r">± %</span><span class="th r">Actions</span>
       </div>
-      ${rows}</div>
+      ${rows}${cashRow(c, cols)}
+      ${!rows && !c.cash ? '<div class="empty">Aucune ligne — ajoute une ligne ou importe un relevé.</div>' : ''}</div>
     </div>
 
     <div class="grid" style="grid-template-columns:1fr 1fr 1fr">
-      <div class="card"><div style="font-size:15px;font-weight:600">Versements</div><div class="mono" style="font-size:22px;font-weight:500;margin-top:10px">${eur(c.mise)}</div><div class="kpi-n">${(snap?.operations || []).filter(o => o.compte === 'PEA' && o.type === 'Achat').length} achats</div></div>
-      <div class="card"><div style="font-size:15px;font-weight:600">Concentration</div><div class="mono ${c.value && top2/c.value > 0.6 ? 'neg' : ''}" style="font-size:22px;font-weight:500;margin-top:10px">${pctS(c.value ? top2/c.value*100 : 0)}</div><div class="kpi-n">${c.lines.slice(0,2).map(l => esc(l.name)).join(' + ') || '—'}</div></div>
-      <div class="card"><div style="font-size:15px;font-weight:600">Source des données</div><div style="font-size:14px;font-weight:500;margin-top:10px">${esc(snap?.imports?.[0]?.file || '—')}</div><div class="kpi-n">${snap?.imports?.[0] ? new Date(snap.imports[0].at).toLocaleDateString('fr-FR') + ' · <span class="pos" style="font-weight:500">succès</span>' : 'aucun import'}</div></div>
+      <div class="card"><div style="font-size:15px;font-weight:600">Versements</div><div class="mono" style="font-size:22px;font-weight:500;margin-top:10px">${versements ? eur(versements) : '—'}</div><div class="kpi-n">${versements ? 'd\'après tes opérations' : 'aucun versement enregistré'} · ${nbAchats} achat${nbAchats > 1 ? 's' : ''}</div></div>
+      <div class="card"><div style="font-size:15px;font-weight:600">Concentration</div><div class="mono ${c.value && top2 / c.value > 0.6 && c.lines.length > 2 ? 'neg' : ''}" style="font-size:22px;font-weight:500;margin-top:10px">${c.value ? pctS(top2 / c.value * 100) : '—'}</div><div class="kpi-n">${byValue.slice(0, 2).map(l => esc(l.name)).join(' + ') || '—'}</div></div>
+      <div class="card"><div style="font-size:15px;font-weight:600">Première opération</div><div style="font-size:18px;font-weight:500;margin-top:10px">${c.premiereOperation ? esc(monthLong(c.premiereOperation)) : '—'}</div><div class="kpi-n">${c.premiereOperation ? 'ancienneté ' + anciennete(name) : 'aucune opération datée'}</div></div>
     </div>
   </div>`;
 }
 
-/* ============================================================
-   Vue Assurance Vie
-   ============================================================ */
-function viewAv(){
-  const c = compte('Assurance Vie');
-  const cols = '1.7fr 150px 100px 90px 100px 100px 96px';
+/** Contrat : assurance vie, PER… */
+function viewContrat(name){
+  const c = compte(name);
+  const cols = '1.7fr 150px 100px 90px 100px 100px 96px 120px';
   const maxAbsPv = Math.max(0.01, ...c.lines.map(l => Math.abs(l.pv)));
 
   const pvRows = c.lines.map(l => {
     const w = Math.max(1, Math.abs(l.pv) / maxAbsPv * 50);
-    const name = l.name.length > 34 ? l.name.slice(0,32) + '…' : l.name;
     return `
-      <div style="display:grid;grid-template-columns:1fr 92px 60px;align-items:center;gap:12px">
-        <span style="font-size:13px;font-weight:500">${esc(name)}</span>
+      <div style="display:grid;grid-template-columns:1fr 92px 70px;align-items:center;gap:12px">
+        <span style="font-size:13px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.name)}</span>
         <div style="display:flex;align-items:center;height:16px;position:relative">
           <div style="position:absolute;left:50%;top:0;bottom:0;width:1px;background:var(--line)"></div>
           ${l.pv === 0 ? '' : `<div style="position:absolute;height:10px;border-radius:2px;background:${l.pv > 0 ? 'var(--green)' : 'var(--red)'};width:${w}%;left:${l.pv > 0 ? 50 : 50 - w}%"></div>`}
@@ -1379,103 +1329,106 @@ function viewAv(){
   }).join('') || '<div class="empty">Aucun support.</div>';
 
   const rows = c.lines.map(l => `
-    <div class="tr" style="display:grid;grid-template-columns:${cols};padding:13px 0">
-      <div><div style="font-size:14px;font-weight:500">${esc(l.name)}</div><div style="font-size:12px;color:var(--mut2)">${esc(l.cat)}${l.live ? ' · en direct' : ''}</div></div>
+    <div class="tr" style="display:grid;grid-template-columns:${cols};padding:13px 0;align-items:center">
+      <div style="min-width:0"><div style="font-size:14px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.name)}</div><div style="font-size:12px;color:var(--mut2)">${esc(l.classe)}${l.live ? ' · en direct' : ''}</div></div>
       <span class="mono" style="font-size:12px;color:var(--mut)">${esc(l.isin || '—')}</span>
-      <span class="mono" style="font-size:13px;text-align:right;color:var(--mut)">${(l.qty ?? 0).toLocaleString('fr-FR',{minimumFractionDigits:6,maximumFractionDigits:6})}</span>
+      <span class="mono" style="font-size:13px;text-align:right;color:var(--mut)">${(l.qty ?? 0).toLocaleString('fr-FR', { maximumFractionDigits:6 })}</span>
       <span class="mono" style="font-size:13px;text-align:right;color:var(--mut)">${eur(l.price)}</span>
       <span class="mono" style="font-size:13px;text-align:right;color:var(--mut)">${eur(l.pru)}</span>
       <span class="mono" style="font-size:14px;font-weight:500;text-align:right">${eur(l.value)}</span>
       <span class="mono ${cls(l.pv)}" style="font-size:14px;font-weight:500;text-align:right">${l.pv === 0 ? '0,00 €' : sEur(l.pv)}</span>
-    </div>`).join('') || '<div class="empty">Aucun support — importe l\'export du contrat.</div>';
+      ${lineActions(l)}
+    </div>`).join('');
 
-  const euro = c.lines.filter(l => l.classe === 'Fonds euro').reduce((s,l) => s + l.value, 0);
-  const uc = c.value - euro;
-  const actions = c.lines.filter(l => l.classe === 'ETF actions').reduce((s,l) => s + l.value, 0);
-  const oblig = c.lines.filter(l => l.classe === 'Obligations').reduce((s,l) => s + l.value, 0);
+  const euro = c.lines.filter(l => l.classe === 'Fonds euro').reduce((s, l) => s + l.value, 0) + (c.balance || 0);
+  const uc = Math.max(0, c.value - euro - (c.cash || 0));
+  const actions = c.lines.filter(l => l.classe === 'ETF actions' || l.classe === 'Actions en direct').reduce((s, l) => s + l.value, 0);
+  const oblig = c.lines.filter(l => l.classe === 'Obligations').reduce((s, l) => s + l.value, 0);
   const best = c.lines[0], worst = c.lines[c.lines.length - 1];
-  const ucPct = c.value ? uc/c.value*100 : 0;
-  const kpi = (l,v,k) => `<div class="card" style="padding:22px"><div class="kpi-l">${l}</div><div class="kpi-v ${k || ''}" style="margin-top:8px">${v}</div></div>`;
+  const ucPct = c.value ? uc / c.value * 100 : 0;
 
   return `<div class="screen">
-    <div class="crumb"><span class="up" data-act="view" data-arg="global">Patrimoine</span><span class="sep">/</span><span class="cur">Assurance Vie</span></div>
-    <div>
-      <div class="title-xl">Assurance Vie · Linxea Spirit 2</div>
-      <div class="title-sub">${c.lines.length} supports · valorisé ${new Date(snap?.asOf || Date.now()).toLocaleString('fr-FR')}</div>
-    </div>
-    <div class="grid" style="grid-template-columns:repeat(4,1fr)">
-      ${kpi('Valeur de rachat', eur(c.value))}${kpi('Versements nets', eur(c.mise))}${kpi(c.pv >= 0 ? 'Plus-value latente' : 'Moins-value latente', sEur(c.pv), cls(c.pv))}${kpi('Performance', sPct(c.pvPct), cls(c.pvPct))}
+    ${crumb(name)}
+    ${headerBlock(name, `${c.lines.length} support${c.lines.length > 1 ? 's' : ''} · valorisé le ${new Date(snap?.asOf || Date.now()).toLocaleString('fr-FR')}`)}
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+      ${kpiBox('Valeur', eur(c.value))}${kpiBox('Mise', eur(c.mise))}${kpiBox(c.pv >= 0 ? 'Plus-value latente' : 'Moins-value latente', sEur(c.pv), cls(c.pv))}${kpiBox('Performance', sPct(c.pvPct), cls(c.pvPct))}
     </div>
     <div class="grid" style="grid-template-columns:1fr 1.25fr">
       <div class="card">
         <div class="card-t">Fonds euro vs unités de compte</div>
-        <div style="display:flex;align-items:center;gap:24px;margin-top:22px">
+        <div style="display:flex;align-items:center;gap:24px;margin-top:22px;flex-wrap:wrap">
           <svg width="132" height="132" viewBox="0 0 42 42">
             <circle cx="21" cy="21" r="15.9" fill="none" stroke="#dee1e6" stroke-width="6"></circle>
             <circle cx="21" cy="21" r="15.9" fill="none" stroke="#0052ff" stroke-width="6" stroke-dasharray="${Math.max(0.1, ucPct - 0.1).toFixed(1)} ${(100 - ucPct + 0.1).toFixed(1)}" stroke-dashoffset="25"></circle>
           </svg>
           <div style="display:flex;flex-direction:column;gap:14px">
             <div><div class="legend"><span class="sq" style="background:var(--blue)"></span><span style="font-size:14px;font-weight:500;color:var(--ink)">Unités de compte</span></div><div class="mono" style="font-size:18px;font-weight:500;margin-top:4px;margin-left:18px">${eur(uc)} · ${pctS(ucPct)}</div></div>
-            <div><div class="legend"><span class="sq" style="background:var(--line)"></span><span style="font-size:14px;font-weight:500;color:var(--ink)">Fonds euro</span></div><div class="mono" style="font-size:18px;font-weight:500;margin-top:4px;margin-left:18px">${eur(euro)} · ${pctS(100 - ucPct)}</div></div>
+            <div><div class="legend"><span class="sq" style="background:var(--line)"></span><span style="font-size:14px;font-weight:500;color:var(--ink)">Fonds euro</span></div><div class="mono" style="font-size:18px;font-weight:500;margin-top:4px;margin-left:18px">${eur(euro)} · ${pctS(c.value ? euro / c.value * 100 : 0)}</div></div>
           </div>
         </div>
         <div style="border-top:1px solid var(--line2);margin-top:22px;padding-top:16px;display:flex;flex-direction:column;gap:10px">
-          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Poche actions</span><span class="mono" style="font-size:13px;font-weight:500">${eur(actions)} · ${pctS(c.value ? actions/c.value*100 : 0)}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Poche obligataire</span><span class="mono" style="font-size:13px;font-weight:500">${eur(oblig)} · ${pctS(c.value ? oblig/c.value*100 : 0)}</span></div>
-          ${ucPct > 95 ? '<div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Contrat quasi intégralement en UC</span><span class="neg" style="font-size:13px;font-weight:500">à surveiller</span></div>' : ''}
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Poche actions</span><span class="mono" style="font-size:13px;font-weight:500">${eur(actions)} · ${pctS(c.value ? actions / c.value * 100 : 0)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Poche obligataire</span><span class="mono" style="font-size:13px;font-weight:500">${eur(oblig)} · ${pctS(c.value ? oblig / c.value * 100 : 0)}</span></div>
+          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Antériorité fiscale</span><span class="mono" style="font-size:13px;font-weight:500">${anciennete(name)} / 8 ans</span></div>
         </div>
       </div>
       <div class="card">
         <div style="display:flex;align-items:baseline;justify-content:space-between">
           <div class="card-t">Plus ou moins-value par support</div>
-          <span style="font-size:13px;color:var(--mut2)">${new Date(snap?.asOf || Date.now()).toLocaleDateString('fr-FR')}</span>
         </div>
         <div style="display:flex;flex-direction:column;gap:10px;margin-top:20px">${pvRows}</div>
-        <div style="display:flex;gap:24px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line2)">
-          <div><div style="font-size:12px;color:var(--mut2)">Meilleur support</div><div style="font-size:14px;font-weight:600;margin-top:2px">${best ? esc(best.name.slice(0,26)) + ` <span class="mono ${cls(best.pv)}" style="font-weight:500">${sEur(best.pv)}</span>` : '—'}</div></div>
-          <div><div style="font-size:12px;color:var(--mut2)">Moins bon support</div><div style="font-size:14px;font-weight:600;margin-top:2px">${worst && worst !== best ? esc(worst.name.slice(0,26)) + ` <span class="mono ${cls(worst.pv)}" style="font-weight:500">${sEur(worst.pv)}</span>` : '—'}</div></div>
+        <div style="display:flex;gap:24px;margin-top:20px;padding-top:16px;border-top:1px solid var(--line2);flex-wrap:wrap">
+          <div><div style="font-size:12px;color:var(--mut2)">Meilleur support</div><div style="font-size:14px;font-weight:600;margin-top:2px">${best ? esc(best.name.slice(0, 26)) + ` <span class="mono ${cls(best.pv)}" style="font-weight:500">${sEur(best.pv)}</span>` : '—'}</div></div>
+          <div><div style="font-size:12px;color:var(--mut2)">Moins bon support</div><div style="font-size:14px;font-weight:600;margin-top:2px">${worst && worst !== best ? esc(worst.name.slice(0, 26)) + ` <span class="mono ${cls(worst.pv)}" style="font-weight:500">${sEur(worst.pv)}</span>` : '—'}</div></div>
         </div>
       </div>
     </div>
     <div class="card">
       <div class="card-t" style="margin-bottom:16px">Détail des supports</div>
       <div class="scroll-x"><div class="thead" style="display:grid;grid-template-columns:${cols}">
-        <span class="th">Support</span><span class="th">ISIN</span><span class="th r">Parts</span><span class="th r">Cotation</span><span class="th r">PRM</span><span class="th r">Montant</span><span class="th r">± €</span>
+        <span class="th">Support</span><span class="th">ISIN</span><span class="th r">Parts</span><span class="th r">Cotation</span><span class="th r">PRU</span><span class="th r">Montant</span><span class="th r">± €</span><span class="th r">Actions</span>
       </div>
-      ${rows}</div>
+      ${rows}${cashRow(c, cols)}
+      ${!rows && !c.cash ? '<div class="empty">Aucun support — ajoute une ligne ou importe l\'export du contrat.</div>' : ''}</div>
     </div>
   </div>`;
 }
 
-/* ============================================================
-   Vue Livret A
-   ============================================================ */
-function viewLivret(){
-  const c = compte('Livret A');
+/** Épargne en solde : Livret A, LDDS, LEP… */
+function viewSolde(name){
+  const c = compte(name);
   const t = T();
   const part = t.patrimoine ? c.value / t.patrimoine * 100 : 0;
-  const pea = compte('PEA'), av = compte('Assurance Vie');
   const mensuel = settings().monthlyExpenses;   // null tant que non renseigné : aucun chiffre inventé
+  const autres = comptesList().filter(x => x.name !== name && x.value > 0);
+  const colors = ['var(--blue)', 'var(--green)', '#99b7ff', '#a8acb3', '#c8ccd2'];
 
   return `<div class="screen">
-    <div class="crumb"><span class="up" data-act="view" data-arg="global">Patrimoine</span><span class="sep">/</span><span class="cur">Livret A</span></div>
-    <div>
-      <div class="title-xl">Livret A</div>
-      <div class="title-sub">Épargne de précaution · capital garanti · taux ${c.taux ? pctS(c.taux) : '—'} · exonéré d'impôt</div>
+    ${crumb(name)}
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap">
+      <div>
+        <div class="title-xl">${esc(name)}</div>
+        <div class="title-sub">Épargne disponible · capital garanti · taux ${c.taux ? pctS(c.taux) : 'non renseigné'}</div>
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap">
+        <div class="btn btn-s" data-act="delBalance" data-arg="${esc(name)}">Supprimer</div>
+        <div class="btn btn-p" data-act="editBalance" data-arg="${esc(name)}">Mettre à jour le solde</div>
+      </div>
     </div>
     <div class="grid" style="grid-template-columns:1.2fr 1fr 1fr">
       <div class="card">
         <div class="kpi-l">Solde actuel</div>
         <div class="kpi-v xl">${eur(c.value)}</div>
-        <div style="display:flex;justify-content:space-between;margin-top:20px;margin-bottom:8px"><span style="font-size:13px;color:var(--mut)">Plafond réglementaire</span><span class="mono" style="font-size:13px;font-weight:500">${Math.round(c.value).toLocaleString('fr-FR')} / ${PLAFOND_LIVRET_A.toLocaleString('fr-FR')} €</span></div>
-        <div style="height:12px;border-radius:6px;background:var(--line2)"><div style="width:${Math.min(100, c.value/PLAFOND_LIVRET_A*100).toFixed(1)}%;height:100%;border-radius:6px;background:var(--blue)"></div></div>
-        <div style="font-size:13px;color:var(--mut);margin-top:10px">${pctS(c.value/PLAFOND_LIVRET_A*100)} du plafond · ${eur0(PLAFOND_LIVRET_A - c.value)} encore versables</div>
+        ${c.plafond ? `
+        <div style="display:flex;justify-content:space-between;margin-top:20px;margin-bottom:8px"><span style="font-size:13px;color:var(--mut)">Plafond réglementaire</span><span class="mono" style="font-size:13px;font-weight:500">${Math.round(c.value).toLocaleString('fr-FR')} / ${c.plafond.toLocaleString('fr-FR')} €</span></div>
+        <div style="height:12px;border-radius:6px;background:var(--line2)"><div style="width:${Math.max(0, Math.min(100, c.value / c.plafond * 100)).toFixed(1)}%;height:100%;border-radius:6px;background:var(--blue)"></div></div>
+        <div style="font-size:13px;color:var(--mut);margin-top:10px">${pctS(c.value / c.plafond * 100)} du plafond · ${eur0(Math.max(0, c.plafond - c.value))} encore versables</div>`
+        : `<div style="font-size:13px;color:var(--mut);margin-top:12px">Mis à jour ${esc(window.PatrimoineData?.portfolio?.balances?.[name]?.updatedAt ? 'le ' + frDate(window.PatrimoineData.portfolio.balances[name].updatedAt) : 'manuellement')}</div>`}
       </div>
       <div class="card">
         <div class="kpi-l">Intérêts ${new Date().getFullYear()} estimés</div>
         <div class="kpi-v xl pos">${c.interets ? sEur(c.interets) : '—'}</div>
-        <div style="font-size:13px;color:var(--mut);margin-top:8px">Calculé par quinzaines · versés au 31/12</div>
-        <div style="border-top:1px solid var(--line2);margin-top:16px;padding-top:14px;display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut)">Solde renseigné</span><span style="font-size:13px;font-weight:500;color:var(--mut3)">manuellement</span></div>
+        <div style="font-size:13px;color:var(--mut);margin-top:8px;line-height:1.5">${c.taux ? `Solde × taux renseigné (${pctS(c.taux)}). Le calcul réel se fait par quinzaines.` : 'Renseigne le taux du livret pour estimer les intérêts.'}</div>
       </div>
       <div class="card">
         <div style="display:flex;align-items:baseline;justify-content:space-between;gap:10px">
@@ -1483,64 +1436,79 @@ function viewLivret(){
           <span class="link" style="font-size:12px;cursor:pointer" data-act="editExpenses">${mensuel ? 'Modifier' : 'Renseigner'}</span>
         </div>
         ${mensuel ? `
-        <div class="kpi-v xl">${(c.value / mensuel).toLocaleString('fr-FR',{maximumFractionDigits:1})} mois</div>
-        <div style="font-size:13px;color:var(--mut);margin-top:8px;line-height:1.5">Sur la base de ${eur0(mensuel)} de dépenses mensuelles que tu as renseignées. Cible courante : 3 à 6 mois${c.value/mensuel >= 3 && c.value/mensuel <= 6 ? ' — tu es dans la cible.' : '.'}</div>`
+        <div class="kpi-v xl">${(c.value / mensuel).toLocaleString('fr-FR', { maximumFractionDigits:1 })} mois</div>
+        <div style="font-size:13px;color:var(--mut);margin-top:8px;line-height:1.5">Sur la base de ${eur0(mensuel)} de dépenses mensuelles que tu as renseignées. Repère courant : 3 à 6 mois${c.value / mensuel >= 3 && c.value / mensuel <= 6 ? ' — tu es dans la cible.' : '.'}</div>`
         : `<div class="kpi-v xl">—</div>
         <div style="font-size:13px;color:var(--mut);margin-top:8px;line-height:1.5">Renseigne tes dépenses mensuelles pour savoir combien de mois ce livret couvre.</div>`}
       </div>
     </div>
-    <div style="background:var(--ink);border-radius:24px;padding:28px 32px;display:grid;grid-template-columns:1fr 1fr;gap:32px;align-items:center">
+    ${autres.length ? `
+    <div style="background:var(--ink);border-radius:24px;padding:28px 32px;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:32px;align-items:center">
       <div>
-        <div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mut3)">Répartition du patrimoine</div>
-        <div style="font-size:24px;font-weight:400;letter-spacing:-.5px;color:#fff;margin-top:8px;line-height:1.35">${pctS(part)} de ton épargne dort sur un livret à ${c.taux ? pctS(c.taux) : '—'}</div>
-        <div style="font-size:14px;color:var(--mut3);line-height:1.6;margin-top:12px">Au-delà de 4 à 6 mois de dépenses, l'excédent perd du pouvoir d'achat dès que l'inflation dépasse le taux du livret. Les versements suivants pourraient aller vers le PEA ou l'assurance vie.</div>
+        <div style="font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--mut3)">Part dans le patrimoine</div>
+        <div style="font-size:24px;font-weight:400;letter-spacing:-.5px;color:#fff;margin-top:8px;line-height:1.35">${esc(name)} représente ${pctS(part)} de ton patrimoine${c.taux ? `, rémunéré à ${pctS(c.taux)}` : ''}.</div>
+        <div style="font-size:14px;color:var(--mut3);line-height:1.6;margin-top:12px">Une épargne de précaution couvre en général 3 à 6 mois de dépenses. Au-delà, l'excédent peut perdre du pouvoir d'achat si l'inflation dépasse le taux du livret.</div>
       </div>
       <div>
         <div style="display:flex;height:40px;border-radius:8px;overflow:hidden;gap:2px">
-          <div style="flex:${Math.max(1,c.value)};background:#3f4652;display:flex;align-items:center;padding-left:14px"><span class="mono" style="font-size:13px;font-weight:500;color:#fff;white-space:nowrap">Livret A ${pctS(part)}</span></div>
-          <div style="flex:${Math.max(1,pea.value)};background:var(--blue);display:flex;align-items:center;justify-content:center"><span class="mono" style="font-size:12px;font-weight:600;color:#fff">PEA</span></div>
-          <div style="flex:${Math.max(1,av.value)};background:var(--green);display:flex;align-items:center;justify-content:center"><span class="mono" style="font-size:12px;font-weight:600;color:var(--ink)">AV</span></div>
+          <div style="flex:${Math.max(1, c.value)};background:#3f4652;display:flex;align-items:center;padding-left:14px;min-width:0"><span class="mono" style="font-size:13px;font-weight:500;color:#fff;white-space:nowrap">${pctS(part)}</span></div>
+          ${autres.map((x, i) => `<div style="flex:${Math.max(1, x.value)};background:${colors[i % colors.length]}"></div>`).join('')}
         </div>
         <div style="display:flex;flex-direction:column;gap:10px;margin-top:18px">
-          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut3)">Livret A · garanti ${c.taux ? pctS(c.taux) : ''}</span><span class="mono" style="font-size:13px;color:#fff">${eur(c.value)}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut3)">PEA · actions</span><span class="mono" style="font-size:13px;color:#fff">${eur(pea.value)}</span></div>
-          <div style="display:flex;justify-content:space-between"><span style="font-size:13px;color:var(--mut3)">Assurance vie · UC</span><span class="mono" style="font-size:13px;color:#fff">${eur(av.value)}</span></div>
+          <div style="display:flex;justify-content:space-between;gap:12px"><span style="font-size:13px;color:var(--mut3)">${esc(name)}</span><span class="mono" style="font-size:13px;color:#fff">${eur(c.value)}</span></div>
+          ${autres.map(x => `<div style="display:flex;justify-content:space-between;gap:12px"><span style="font-size:13px;color:var(--mut3)">${esc(x.name)}</span><span class="mono" style="font-size:13px;color:#fff">${eur(x.value)}</span></div>`).join('')}
         </div>
       </div>
-    </div>
+    </div>` : ''}
   </div>`;
+}
+
+function viewCompte(name){
+  const c = snap?.comptes?.[name];
+  if (!c) {
+    return `<div class="screen">${crumb(name)}<div class="card"><div class="empty">L'enveloppe « ${esc(name)} » n'existe plus. <span class="link" data-act="view" data-arg="global">Retour à la vue globale →</span></div></div></div>`;
+  }
+  const kind = kindOf(c);
+  return kind === 'solde' ? viewSolde(name) : kind === 'contrat' ? viewContrat(name) : viewTitres(name);
 }
 
 /* ============================================================
    Vue Opérations
    ============================================================ */
+const OP_TYPES = ['Versement', 'Retrait', 'Achat', 'Vente', 'Dividende', 'Ouverture'];
+
 function viewOps(){
-  const cols = '110px 140px 120px 1fr 110px 130px';
+  const cols = '110px 140px 110px 1fr 100px 130px 60px';
   const all = snap?.operations || [];
   const list = all.filter(o => state.filt === 'Tous' || o.compte === state.filt);
   const rows = list.map(o => `
-    <div class="tr" style="display:grid;grid-template-columns:${cols};padding:13px 0">
+    <div class="tr" style="display:grid;grid-template-columns:${cols};padding:13px 0;align-items:center">
       <span class="mono" style="font-size:13px;color:var(--mut)">${o.dateFr || frDate(o.date)}</span>
-      <span style="font-size:14px;color:var(--mut)">${esc(o.compte)}</span>
+      <span style="font-size:14px;color:var(--mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.compte)}</span>
       <span style="font-size:13px;font-weight:600">${esc(o.type)}</span>
-      <span style="font-size:14px;font-weight:500">${esc(o.libelle)}</span>
+      <span style="font-size:14px;font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(o.libelle)}</span>
       <span class="mono" style="font-size:13px;color:var(--mut2)">${esc(o.ticker || '—')}</span>
-      <span class="mono ${o.type === 'Dividende' ? 'pos' : ''}" style="font-size:14px;font-weight:500;text-align:right">${sEur(o.montant)}</span>
+      <span class="mono ${o.type === 'Dividende' ? 'pos' : ''}" style="font-size:14px;font-weight:500;text-align:right">${sEur(opAmount(o))}</span>
+      <span style="text-align:right"><span style="font-size:12px;font-weight:600;color:var(--red);cursor:pointer" data-act="delOp" data-arg="${o.idx}" title="Supprimer cette opération">Suppr.</span></span>
     </div>`).join('') || '<div class="empty">Aucune opération pour ce filtre.</div>';
 
   const comptes = [...new Set(all.map(o => o.compte))];
+  if (state.filt !== 'Tous' && !comptes.includes(state.filt)) state.filt = 'Tous';
 
   return `<div class="screen">
-    <div style="display:flex;align-items:flex-end;justify-content:space-between">
+    <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
       <div>
         <div class="title-xl">Journal des opérations</div>
-        <div class="title-sub">${all.length} opérations${T().premiereOperation ? ' depuis ' + monthLong(T().premiereOperation) : ''} · doublons ignorés à l'import</div>
+        <div class="title-sub">${all.length} opération${all.length > 1 ? 's' : ''}${T().premiereOperation ? ' depuis ' + monthLong(T().premiereOperation) : ''} · doublons ignorés à l'import</div>
       </div>
-      ${segControl([{value:'Tous',label:'Tous'}, ...comptes.map(c => ({value:c,label:c}))], state.filt, 'filt')}
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        ${comptes.length > 1 ? segControl([{ value:'Tous', label:'Tous' }, ...comptes.map(c => ({ value:c, label:c }))], state.filt, 'filt') : ''}
+        <div class="btn btn-p" data-act="addOp">Ajouter une opération</div>
+      </div>
     </div>
     <div class="card">
       <div class="scroll-x"><div class="thead" style="display:grid;grid-template-columns:${cols}">
-        <span class="th">Date</span><span class="th">Compte</span><span class="th">Type</span><span class="th">Libellé</span><span class="th">Ticker</span><span class="th r">Montant</span>
+        <span class="th">Date</span><span class="th">Compte</span><span class="th">Type</span><span class="th">Libellé</span><span class="th">Ticker</span><span class="th r">Montant</span><span class="th r"></span>
       </div>
       ${rows}</div>
     </div>
@@ -1548,20 +1516,20 @@ function viewOps(){
 }
 
 /* ============================================================
-   Modale d'import
+   Modale d'ajout : saisie manuelle ou import de fichier
    ============================================================ */
 function modal(){
   if (!state.modal) return '';
   const onSaisie = state.modalTab === 'saisie';
   return `
   <div class="overlay" data-act="modal" data-arg="0">
-    <div class="modal" data-act="stop">
+    <div class="modal" data-act="stop" role="dialog" aria-modal="true" aria-label="Ajouter des données">
       <div class="head-block">
         <div>
           <div style="font-size:24px;font-weight:400;letter-spacing:-.5px">Ajouter des données</div>
           <div style="font-size:14px;color:var(--mut);margin-top:4px">Saisis tes lignes à la main, ou importe un fichier de ton courtier</div>
         </div>
-        <div class="close" data-act="modal" data-arg="0">✕</div>
+        <div class="close" data-act="modal" data-arg="0" aria-label="Fermer">✕</div>
       </div>
 
       <div class="segbar" style="display:flex;background:var(--bg);border-radius:100px;padding:4px;gap:2px">
@@ -1576,70 +1544,70 @@ function modal(){
 }
 
 /* ---------- saisie manuelle d'une ligne ----------
-   Le type d'actif (action, ETF, obligation, fonds euro…) n'est plus demandé :
-   il est déduit du libellé et de l'enveloppe par PatrimoineCore.classOf. */
+   Le type d'actif (action, ETF, obligation, fonds euro…) n'est pas demandé :
+   il est déduit du libellé par PatrimoineCore.classOf. */
 
-/** Une enveloppe de type livret / fonds euro se saisit en solde, pas en titres. */
-const isSoldeCompte = c => /livret|ldds|lep|pel|cel|fonds euro|epargne|épargne|compte courant/i.test(c || '');
+const isSoldeCompte = c => window.PatrimoineCore.isSoldeCompte(c);
+const BASE_COMPTES = ['PEA', 'CTO', 'Assurance Vie', 'PER', 'Livret A', 'LDDS', 'LEP'];
 
 function manualForm(){
-  const comptes = [...new Set(['PEA', 'Assurance Vie', 'Livret A', ...Object.keys(snap?.comptes || {})])];
-  const lines = (snap?.lines || []);
-  // les liquidités n'apparaissaient nulle part : impossible de corriger une
-  // trésorerie déduite des opérations qu'on ne reconnaît pas
-  const cashRows = Object.entries(snap?.comptes || {})
-    .filter(([, c]) => c.cash > 0)
-    .map(([name, c]) => ({ compte:name, value:c.cash, derive: !(rawCash()[name] != null) }));
+  const existing = Object.keys(snap?.comptes || {});
   const ed = state.editing;                                  // ligne en cours de modification
   const compteVal = ed?.compte || state.formCompte || 'PEA';
+  const comptes = [...new Set([...existing, ...BASE_COMPTES, compteVal])];
+  const lines = snap?.lines || [];
+  const cashRows = Object.entries(snap?.comptes || {})
+    .filter(([name, c]) => c.cash > 0 || rawCash()[name] != null)
+    .map(([name, c]) => ({ compte:name, value:c.cash, derive: rawCash()[name] == null }));
+  const balances = Object.entries(snap?.comptes || {}).filter(([, c]) => c.balance != null);
   const solde = isSoldeCompte(compteVal);
   const today = new Date().toISOString().slice(0,10);
-  const soldeActuel = snap?.comptes?.[compteVal]?.balance ?? snap?.comptes?.[compteVal]?.value ?? null;
+  const soldeActuel = snap?.comptes?.[compteVal]?.balance ?? null;
+  const fr = n => n == null || n === '' ? '' : String(n).replace('.', ',');
 
   const enveloppeChips = comptes.map(c =>
     `<div class="seg-item${c === compteVal ? ' on' : ''}" style="padding:8px 14px;font-size:13px" data-act="formCompte" data-arg="${esc(c)}">${esc(c)}</div>`
-  ).join('');
+  ).join('') + `<div class="seg-item" style="padding:8px 14px;font-size:13px;color:var(--blue)" data-act="newCompte">+ Autre</div>`;
+
+  const total = lines.length + cashRows.length + balances.length;
 
   return `
-    <form id="posForm">
+    <form id="posForm" novalidate data-epoch="${formEpoch}">
       <div class="field">
         <label>Enveloppe</label>
-        <div style="display:flex;gap:6px;flex-wrap:wrap;background:var(--bg);border-radius:100px;padding:4px">${enveloppeChips}</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;background:var(--bg);border-radius:20px;padding:4px">${enveloppeChips}</div>
       </div>
 
       ${solde ? `
-      <!-- livret / fonds euro : un solde, pas des titres -->
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
         <div class="field">
-          <label for="pSolde">Montant sur le livret *</label>
-          <!-- pré-rempli avec le solde actuel : on corrige au lieu de tout retaper -->
-          <input id="pSolde" type="text" inputmode="decimal" placeholder="ex. 6 681,68"
-                 value="${soldeActuel != null ? String(soldeActuel).replace('.', ',') : ''}" required>
+          <label for="pSolde">Solde actuel de ${esc(compteVal)} *</label>
+          <input id="pSolde" type="text" inputmode="decimal" placeholder="ex. 6 681,68" value="${fr(soldeActuel)}" autocomplete="off">
         </div>
         <div class="field">
           <label for="pTaux">Taux annuel (%)</label>
-          <input id="pTaux" type="text" inputmode="decimal" placeholder="2,4" value="${snap?.comptes?.[compteVal]?.taux ?? ''}">
+          <input id="pTaux" type="text" inputmode="decimal" placeholder="ex. 2,4" value="${fr(snap?.comptes?.[compteVal]?.taux)}" autocomplete="off">
         </div>
       </div>
       <div style="font-size:12px;color:var(--mut2);line-height:1.5;margin-bottom:14px">
-        Le solde remplace la valeur précédente. Le taux sert à estimer les intérêts de l'année.
+        Le solde remplace la valeur précédente. Le taux (facultatif) sert à estimer les intérêts de l'année.
       </div>` : `
       <div class="field">
         <label for="pName">Nom ou code ISIN *</label>
-        <input id="pName" required placeholder="Air Liquide  ·  ou  FR0000120073" value="${ed ? esc(ed.isin || ed.name || '') : ''}">
+        <input id="pName" placeholder="Air Liquide  ·  ou  FR0000120073" value="${ed ? esc(ed.name || ed.isin || '') : ''}" autocomplete="off" maxlength="120">
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px">
         <div class="field">
           <label for="pQty">Quantité *</label>
-          <input id="pQty" type="text" inputmode="decimal" placeholder="4" value="${ed ? String(ed.qty ?? '').replace('.', ',') : ''}" required>
+          <input id="pQty" type="text" inputmode="decimal" placeholder="ex. 4" value="${ed ? fr(ed.qty) : ''}" autocomplete="off">
         </div>
         <div class="field">
-          <label for="pPru">Prix d'achat *</label>
-          <input id="pPru" type="text" inputmode="decimal" placeholder="168,40" value="${ed ? String(ed.pru ?? '').replace('.', ',') : ''}" required>
+          <label for="pPru">Prix d'achat unitaire (€) *</label>
+          <input id="pPru" type="text" inputmode="decimal" placeholder="ex. 168,40" value="${ed ? fr(ed.pru) : ''}" autocomplete="off">
         </div>
         <div class="field">
           <label for="pDate">Date d'achat</label>
-          <input id="pDate" type="date" max="${today}" value="${ed?.buyDate || today}">
+          <input id="pDate" type="date" max="${today}" value="${ed ? (ed.buyDate || '') : today}">
         </div>
       </div>
       <div style="font-size:12px;color:var(--mut2);line-height:1.5;margin-bottom:14px">
@@ -1647,7 +1615,7 @@ function manualForm(){
         Avec un simple nom, la ligne reste au prix que tu saisis.
       </div>`}
 
-      <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center">
+      <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap">
         ${ed ? `<span style="font-size:12px;color:var(--mut2);margin-right:auto">Modification de « ${esc(ed.name)} »</span>
                 <div class="btn btn-s" data-act="cancelEdit">Annuler</div>` : `<div class="btn btn-s" data-act="modal" data-arg="0">Fermer</div>`}
         <button type="submit" class="btn btn-p" style="border:0;font-family:inherit" ${state.importing ? 'disabled' : ''}>
@@ -1656,29 +1624,41 @@ function manualForm(){
       </div>
     </form>
 
-    ${(lines.length || cashRows.length) ? `
+    ${total ? `
     <div style="margin-top:20px;padding-top:16px;border-top:1px solid var(--line2)">
-      <div class="th" style="font-size:12px;margin-bottom:8px">Mes lignes (${lines.length + cashRows.length}) — clique pour modifier</div>
-      <div style="display:flex;flex-direction:column;gap:6px;max-height:260px;overflow:auto">
+      <div class="th" style="font-size:12px;margin-bottom:8px">Mes lignes (${total})</div>
+      <div style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow:auto">
         ${lines.map((l, li) => `
           <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px">
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${esc(l.name)}</div>
-              <div style="font-size:11px;color:var(--mut2)">${esc(l.compte)} · ${l.qty} × ${eur(l.pru)}${l.live ? ' · coté' : ''}</div>
+              <div style="font-size:11px;color:var(--mut2)">${esc(l.compte)} · ${(l.qty ?? 0).toLocaleString('fr-FR', { maximumFractionDigits:6 })} × ${eur(l.pru)}${l.live ? ' · coté' : ''}</div>
             </div>
             <span class="mono" style="font-size:13px;flex:none">${eur(l.value)}</span>
             <span class="link" style="font-size:12px;cursor:pointer;flex:none" data-act="editPos" data-arg="${li}">Modifier</span>
             <span style="font-size:12px;font-weight:600;color:var(--red);cursor:pointer;flex:none" data-act="delPos" data-arg="${li}">Suppr.</span>
           </div>`).join('')}
+        ${balances.map(([name, c]) => `
+          <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px">
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;font-weight:600">${esc(name)} · solde</div>
+              <div style="font-size:11px;color:var(--mut2)">${c.taux ? 'taux ' + pctS(c.taux) : 'taux non renseigné'}</div>
+            </div>
+            <span class="mono" style="font-size:13px;flex:none">${eur(c.balance)}</span>
+            <span class="link" style="font-size:12px;cursor:pointer;flex:none" data-act="editBalance" data-arg="${esc(name)}">Modifier</span>
+            <span style="font-size:12px;font-weight:600;color:var(--red);cursor:pointer;flex:none" data-act="delBalance" data-arg="${esc(name)}">Suppr.</span>
+          </div>`).join('')}
         ${cashRows.map(c => `
           <div style="display:flex;align-items:center;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px">
             <div style="flex:1;min-width:0">
               <div style="font-size:13px;font-weight:600">Liquidités · ${esc(c.compte)}</div>
-              <div style="font-size:11px;color:var(--mut2)">${c.derive ? cashExplain(c.compte) : 'montant que tu as fixé'}</div>
+              <div style="font-size:11px;color:var(--mut2)">${c.derive ? esc(cashExplain(c.compte)) : 'montant que tu as fixé'}</div>
             </div>
             <span class="mono" style="font-size:13px;flex:none">${eur(c.value)}</span>
             <span class="link" style="font-size:12px;cursor:pointer;flex:none" data-act="editCash" data-arg="${esc(c.compte)}">Modifier</span>
-            <span style="font-size:12px;font-weight:600;color:var(--red);cursor:pointer;flex:none" data-act="delCash" data-arg="${esc(c.compte)}">Suppr.</span>
+            ${c.derive
+              ? `<span style="font-size:12px;font-weight:600;color:var(--red);cursor:pointer;flex:none" data-act="delCash" data-arg="${esc(c.compte)}">Suppr.</span>`
+              : `<span class="link" style="font-size:12px;cursor:pointer;flex:none" data-act="resetCash" data-arg="${esc(c.compte)}">Recalculer</span>`}
           </div>`).join('')}
       </div>
     </div>` : ''}`;
@@ -1696,9 +1676,9 @@ function fileImportPanel(){
         </div>
         <div class="btn btn-s" style="height:36px;font-size:13px" data-act="pick">Changer</div>
       </div>
-      <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center">
+      <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap">
         <span style="font-size:12px;color:var(--mut2);margin-right:auto">Vérifie le nom du fichier, puis lance l'import.</span>
-        <div class="btn btn-s" data-act="modal" data-arg="0">Annuler</div>
+        <div class="btn btn-s" data-act="clearFile">Annuler</div>
         <div class="btn btn-p" data-act="runImport">
           ${state.importing ? '<span class="spin"></span>Import en cours…' : "Lancer l'import"}
         </div>
@@ -1709,7 +1689,7 @@ function fileImportPanel(){
         <div style="font-size:13px;color:var(--mut)">CSV, TSV ou XLSX · 10 Mo maximum</div>
       </div>`}
       <div>
-        <div class="th" style="font-size:12px;margin-bottom:10px">Opérations</div>
+        <div class="th" style="font-size:12px;margin-bottom:10px">Exemple : opérations</div>
         <div class="code">
           <div style="color:var(--ink);font-weight:600">Date;Compte;Type;Montant;Ticker</div>
           <div>2026-07-17;PEA;ACHAT;-516,56;SU</div>
@@ -1717,15 +1697,15 @@ function fileImportPanel(){
         </div>
       </div>
       <div>
-        <div class="th" style="font-size:12px;margin-bottom:10px">Positions (remplace les lignes de l'enveloppe)</div>
+        <div class="th" style="font-size:12px;margin-bottom:10px">Exemple : positions (remplace les lignes de l'enveloppe)</div>
         <div class="code">
           <div style="color:var(--ink);font-weight:600">Compte;Libellé;ISIN;Quantité;PRU;Cours</div>
-          <div>PEA;Schneider Electric;FR0000121972;2;258,28;269,95</div>
+          <div>PEA;Air Liquide;FR0000120073;4;168,40;172,10</div>
         </div>
       </div>
       ${f ? '' : `
-      <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center">
-        <span style="font-size:12px;color:var(--mut2);margin-right:auto">Les colonnes sont reconnues automatiquement (FR/EN). Fichier .xls : réenregistre-le en .xlsx.</span>
+      <div style="display:flex;gap:10px;justify-content:flex-end;align-items:center;flex-wrap:wrap">
+        <span style="font-size:12px;color:var(--mut2);margin-right:auto">Les colonnes sont reconnues automatiquement, même sans en-tête. Fichier .xls : réenregistre-le en .xlsx.</span>
         <div class="btn btn-s" data-act="modal" data-arg="0">Fermer</div>
         <div class="btn btn-p" data-act="pick">Choisir un fichier</div>
       </div>`}`;
@@ -1734,30 +1714,67 @@ function fileImportPanel(){
 /* ============================================================
    Rendu + interactions
    ============================================================ */
-const VIEWS = { global:viewGlobal, pea:viewPea, av:viewAv, livret:viewLivret, ops:viewOps };
 const app = document.getElementById('app');
 const picker = document.getElementById('picker');
 
-function render(){
-  if (state.user === undefined){
-    app.innerHTML = `<div class="auth-shell"><div class="empty"><span class="spin"></span>Chargement…</div></div>`;
-    return;
+/* Les valeurs saisies survivent aux rafraîchissements de l'écran (arrivée
+   d'une cotation, synchronisation…). `formEpoch` change quand le formulaire
+   DOIT repartir de zéro : autre ligne à modifier, enregistrement réussi. */
+let formEpoch = 0;
+function captureInputs(){
+  // époque du formulaire AFFICHÉ : si elle a changé depuis, la saisie ne doit pas revenir
+  const shown = app.querySelector('form[data-epoch]');
+  const kept = { epoch: shown ? Number(shown.dataset.epoch) : formEpoch, vals:{}, focus:null };
+  app.querySelectorAll('form input[id], form select[id], form textarea[id]').forEach(el => { if (el.type !== 'file') kept.vals[el.id] = el.value; });
+  const a = document.activeElement;
+  if (a?.id && app.contains(a)) kept.focus = { id:a.id, s:a.selectionStart, e:a.selectionEnd };
+  return kept;
+}
+function restoreInputs(kept){
+  if (kept.epoch !== formEpoch) return;
+  for (const [id, v] of Object.entries(kept.vals)) {
+    const el = document.getElementById(id);
+    if (el && app.contains(el) && el.value !== v) el.value = v;
   }
+  if (kept.focus) {
+    const el = document.getElementById(kept.focus.id);
+    if (el && app.contains(el)) {
+      el.focus({ preventScroll:true });
+      try { if (kept.focus.s != null) el.setSelectionRange(kept.focus.s, kept.focus.e); } catch { /* type date */ }
+    }
+  }
+}
+
+/** Les éléments cliquables non natifs deviennent utilisables au clavier. */
+function keyboardify(){
+  app.querySelectorAll('[data-act]:not(button):not(a):not(input):not(.overlay):not([data-act="stop"])').forEach(el => {
+    el.setAttribute('role', 'button');
+    if (!el.hasAttribute('tabindex')) el.tabIndex = 0;
+  });
+}
+
+function render(){
+  if (state.user === undefined){ UI.loading(app); return; }
   if (state.user === null){
-    app.innerHTML = authScreen();
-    wireAuthForm();
+    // l'écran de connexion gère lui-même son état : on ne le redessine pas
+    if (!app.querySelector('.pk-auth')) UI.mountAuth(app);
     return;
   }
   if (!snap){
-    app.innerHTML = `<div class="auth-shell"><div class="card" style="max-width:420px">${
+    app.innerHTML = `<div class="auth-shell"><div class="card" style="max-width:440px">${
       dataError
-        ? `<div class="card-t">Connexion aux données impossible</div><div class="card-s">${esc(dataError)}</div><div style="margin-top:16px"><div class="btn btn-p" style="display:inline-flex" data-act="retryData">Réessayer</div></div>`
+        ? `<div class="card-t">Connexion aux données impossible</div><div class="card-s" style="margin-top:6px;line-height:1.5">${esc(dataError)}</div>
+           <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap"><div class="btn btn-p" data-act="retryData">Réessayer</div><div class="btn btn-s" data-act="signOut">Se déconnecter</div></div>`
         : `<div class="empty"><span class="spin"></span>Chargement du portefeuille…</div>`
     }</div></div>`;
-    app.querySelector('[data-act="retryData"]')?.addEventListener('click', subscribeData);
+    keyboardify();
     return;
   }
-  app.innerHTML = `<div class="shell">${sidebar()}<main>${header()}${VIEWS[state.view]()}</main></div>${modal()}`;
+  const view = state.view.startsWith('c:') ? viewCompte(state.view.slice(2)) : (state.view === 'ops' ? viewOps() : viewGlobal());
+  const kept = captureInputs();
+  app.innerHTML = `<div class="shell">${sidebar()}<main>${header()}${dataError ? `<div class="report err" style="margin:16px 32px 0">${esc(dataError)} <span class="link" data-act="retryData">Réessayer</span></div>` : ''}${view}</main></div>${modal()}`;
+  restoreInputs(kept);
+  keyboardify();
   app.querySelectorAll('[data-leave]').forEach(el => el.addEventListener('mouseleave', () => set({ [el.dataset.leave]: null })));
   wirePositionForm();
   app.querySelectorAll('[data-drop]').forEach(el => {
@@ -1766,95 +1783,56 @@ function render(){
     el.addEventListener('drop', e => {
       e.preventDefault(); el.classList.remove('over');
       const f = e.dataTransfer?.files?.[0];
-      if (f) upload(f);
+      if (f) set({ pendingFile:f, report:null, modal:true, modalTab:'fichier' });
     });
   });
 }
 
-/* ---------- écran de connexion ---------- */
-function authScreen(){
-  const signup = state.authMode === 'signup';
-  return `
-  <div class="auth-shell">
-    <div class="auth-card">
-      <div class="auth-brand"><div class="brand-mark">P</div><div class="brand-name" style="font-size:18px">Patrimoine</div></div>
-      <div class="card-t" style="margin-bottom:4px">${signup ? 'Créer un compte' : 'Connexion'}</div>
-      <div class="card-s" style="margin-bottom:20px">${signup ? 'Ton portefeuille te suit sur tous tes appareils.' : 'Retrouve ton portefeuille où que tu sois.'}</div>
-      ${state.authError ? `<div class="auth-error">${esc(state.authError)}</div>` : ''}
-      <form id="authForm">
-        <div class="field"><label for="authEmail">E-mail</label><input id="authEmail" type="email" autocomplete="email" required></div>
-        <div class="field"><label for="authPassword">Mot de passe</label><input id="authPassword" type="password" autocomplete="${signup ? 'new-password' : 'current-password'}" minlength="6" required></div>
-        <button type="submit" class="btn btn-p" style="width:100%;justify-content:center" ${state.authBusy ? 'disabled' : ''}>
-          ${state.authBusy ? '<span class="spin"></span>' : ''}${signup ? 'Créer mon compte' : 'Se connecter'}
-        </button>
-      </form>
-      <div class="divider">ou</div>
-      <button id="authGoogle" class="btn-google" type="button" ${state.authBusy ? 'disabled' : ''}>
-        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84c-.21 1.13-.84 2.09-1.79 2.73v2.27h2.9c1.7-1.56 2.68-3.87 2.68-6.64z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.27c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.96v2.34C2.44 16.02 5.48 18 9 18z"/><path fill="#FBBC05" d="M3.95 10.69A5.4 5.4 0 013.68 9c0-.59.1-1.16.27-1.69V4.97H.96A9 9 0 000 9c0 1.45.35 2.83.96 4.03l2.99-2.34z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0 5.48 0 2.44 1.98.96 4.97l2.99 2.34C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
-        Continuer avec Google
-      </button>
-      <div class="auth-alt">
-        ${signup ? 'Déjà un compte ?' : 'Pas encore de compte ?'}
-        <span class="link" style="cursor:pointer" data-act="authToggle">${signup ? 'Se connecter' : "S'inscrire"}</span>
-      </div>
-      ${!signup ? `<div class="auth-alt"><span class="link" style="cursor:pointer" data-act="authForgot">Mot de passe oublié ?</span></div>` : ''}
-    </div>
-  </div>`;
-}
-
-function wireAuthForm(){
-  app.querySelector('#authForm')?.addEventListener('submit', async e => {
-    e.preventDefault();
-    const email = app.querySelector('#authEmail').value.trim();
-    const password = app.querySelector('#authPassword').value;
-    set({ authBusy:true, authError:null });
-    try {
-      if (state.authMode === 'signup') await window.PatrimoineAuth.signUp(email, password);
-      else await window.PatrimoineAuth.signIn(email, password);
-    } catch (e2) {
-      state.authError = e2.message;
-    } finally {
-      set({ authBusy:false });
-    }
-  });
-  app.querySelector('#authGoogle')?.addEventListener('click', async () => {
-    set({ authBusy:true, authError:null });
-    try { await window.PatrimoineAuth.signInGoogle(); }
-    catch (e) { state.authError = e.message; }
-    finally { set({ authBusy:false }); }
-  });
-}
-
-/** Formulaire de saisie manuelle d'une ligne (action, ETF, obligation…). */
+/** Formulaire de saisie manuelle d'une ligne ou d'un solde. */
 function wirePositionForm(){
   const form = app.querySelector('#posForm');
   if (!form) return;
   form.addEventListener('submit', async e => {
     e.preventDefault();
+    if (state.importing) return;                              // double clic
     const v = id => app.querySelector('#' + id)?.value ?? '';
     const num = window.PatrimoineCore.num;
     const ed = state.editing;
     const compte = ed?.compte || state.formCompte || 'PEA';
     const solde = isSoldeCompte(compte);
 
-    // IMPORTANT : lire les champs AVANT tout set(), qui redessine la page et
-    // remplace les <input> — sinon on relit des champs vides et la saisie de
-    // l'utilisateur est perdue (« Montant invalide » sur un formulaire rempli).
+    // lire les champs AVANT tout set(), qui redessine la page
     const saisie = solde
-      ? { montant: num(v('pSolde')), taux: num(v('pTaux')) }
-      : { nameOrIsin: v('pName'), qty: num(v('pQty')), pru: num(v('pPru')), date: v('pDate') };
+      ? { montant: num(v('pSolde')), taux: v('pTaux').trim() === '' ? null : num(v('pTaux')) }
+      : { nameOrIsin: v('pName').trim(), qty: num(v('pQty')), pru: num(v('pPru')), date: v('pDate') };
+    // identifiant inchangé lors d'une modification : on garde nom, ISIN et ticker
+    // d'origine (sinon l'ISIN, qui sert à la cotation, serait perdu)
+    if (!solde && ed && [ed.name, ed.isin, ed.ticker].includes(saisie.nameOrIsin)) {
+      Object.assign(saisie, { name: ed.name, isin: ed.isin || '', ticker: ed.ticker || '' });
+    }
+
+    // vérifications immédiates, message précis sur le champ concerné
+    const fail = (msg, id) => { state.report = { error:msg, title:'Vérifie ta saisie' }; render(); app.querySelector('#' + id)?.focus(); };
+    if (solde) {
+      if (saisie.montant == null || saisie.montant < 0) return fail('Indique le solde en euros (ex. 6 681,68).', 'pSolde');
+      if (v('pTaux').trim() !== '' && (saisie.taux == null || saisie.taux < 0 || saisie.taux > 20)) return fail('Taux invalide : indique un pourcentage entre 0 et 20 (ex. 2,4).', 'pTaux');
+    } else {
+      if (!saisie.nameOrIsin) return fail('Indique le nom ou le code ISIN de la ligne.', 'pName');
+      if (saisie.qty == null || saisie.qty <= 0) return fail('Indique une quantité supérieure à 0 (ex. 4 ou 0,5).', 'pQty');
+      if (saisie.pru == null || saisie.pru < 0) return fail('Indique le prix d\'achat unitaire en euros (ex. 168,40).', 'pPru');
+    }
 
     set({ importing:true, report:null });
     try {
       if (solde) {
-        if (saisie.montant == null) throw new Error('Montant invalide.');
-        await window.PatrimoineData.updateBalance(compte, saisie.montant, saisie.taux ?? undefined);
-        state.report = { report:{ file:compte, kind:'positions', added:0, updated:1, removed:0, skipped:0 } };
+        await window.PatrimoineData.updateBalance(compte, saisie.montant, saisie.taux);
+        state.report = { message:`Solde de ${compte} enregistré : ${eur(saisie.montant)}` };
       } else {
         const res = await window.PatrimoineData.savePosition({ ...saisie, compte, replaces: ed?.name });
-        state.report = { report:{ file:res.name, kind:'positions', added:res.created ? 1 : 0, updated:res.created ? 0 : 1, removed:0, skipped:0 } };
+        state.report = { message:`${res.name} ${res.created ? 'ajoutée' : 'mise à jour'} dans ${compte}`, pending:res.pending };
       }
       state.editing = null;
+      formEpoch++;                                            // formulaire vidé pour la saisie suivante
     } catch (e2) {
       state.report = { error:e2.message };
     } finally {
@@ -1869,8 +1847,10 @@ async function upload(file){
   try {
     const res = await window.PatrimoineData.importFile(file);
     state.report = res;
+    state.pendingFile = null;
+    UI.toast(`${file.name} importé`, 'ok');
   } catch (e) {
-    state.report = { error:e.message };
+    state.report = { error:e.message, title:'Import refusé' };
   } finally {
     set({ importing:false });
     render();
@@ -1885,101 +1865,181 @@ picker.addEventListener('change', () => {
   if (f) set({ pendingFile:f, report:null, modal:true, modalTab:'fichier' });
 });
 
+/* ---------- boîtes de dialogue ---------- */
+const parseAmount = (raw, { allowEmpty = false, max = 1e10 } = {}) => {
+  if (allowEmpty && String(raw).trim() === '') return null;
+  const n = window.PatrimoineCore.num(raw);
+  if (n == null || n < 0 || n > max) throw new Error('Montant invalide : indique un nombre positif (ex. 1 250,50).');
+  return n;
+};
+const frNum = n => n == null ? '' : String(n).replace('.', ',');
+
+const LEGACY_VIEWS = { pea:'c:PEA', av:'c:Assurance Vie', livret:'c:Livret A' };
+
 const ACTIONS = {
-  view:   v => set({ view:v }),
+  view:   v => { set({ view: LEGACY_VIEWS[v] || v, seg:null, hov:null }); window.scrollTo({ top:0 }); },
   period: v => set({ period:v }),
   year:   v => set({ year:Number(v), dHov:null }),
   env:    v => set({ env:v, seg:null }),
   tab:    v => set({ tab:v, seg:null }),
   filt:   v => set({ filt:v }),
-  modal:  v => set({ modal:v === '1', report:null }),
+  modal:  v => { formEpoch++; set({ modal:v === '1', report:null, editing:null }); },
   modalTab: v => set({ modalTab:v, report:null }),
+  addTo:  name => { formEpoch++; set({ modal:true, modalTab:'saisie', formCompte:name, editing:null, report:null }); },
   pick:   () => picker.click(),
+  clearFile: () => set({ pendingFile:null, report:null }),
   runImport: async () => {
     const f = state.pendingFile;
     if (!f || state.importing) return;
     await upload(f);
-    set({ pendingFile:null });
   },
-  retryData: subscribeData,
-  formCompte: v => set({ formCompte:v, editing:null }),
-  cancelEdit: () => set({ editing:null }),
-  editGoal: async () => {
-    const cur = settings().goal;
-    const v = prompt("Objectif d'épargne à atteindre (en €)\nLaisse vide pour ne pas en fixer.", cur ?? '');
-    if (v === null) return;
-    try {
-      await window.PatrimoineData.saveSettings({ goal: v.trim() === '' ? null : window.PatrimoineCore.num(v) });
-    } catch (e) { alert(e.message); }
+  retryData: () => { dataError = null; render(); window.PatrimoineData.retry(); },
+  formCompte: v => { formEpoch++; set({ formCompte:v, editing:null, report:null }); },
+  newCompte: async () => {
+    const r = await UI.dialog({
+      title:'Nouvelle enveloppe',
+      message:'Nom de l\'enveloppe (ex. CTO, PER, PEA-PME, Livret Jeune…).',
+      fields:[{ name:'nom', label:'Nom', placeholder:'ex. CTO' }],
+      confirmLabel:'Utiliser',
+      validate: v => v.nom.trim() ? null : 'Indique un nom.'
+    });
+    if (!r) return;
+    formEpoch++;
+    set({ formCompte: window.PatrimoineCore.normCompte(r.nom.trim()), editing:null, report:null });
   },
-  editExpenses: async () => {
-    const cur = settings().monthlyExpenses;
-    const v = prompt('Tes dépenses mensuelles courantes (en €)\nSert à calculer combien de mois ton épargne de précaution couvre.\nLaisse vide pour retirer le calcul.', cur ?? '');
-    if (v === null) return;
-    try {
-      await window.PatrimoineData.saveSettings({ monthlyExpenses: v.trim() === '' ? null : window.PatrimoineCore.num(v) });
-    } catch (e) { alert(e.message); }
+  cancelEdit: () => { formEpoch++; set({ editing:null, report:null }); },
+  editGoal: () => UI.dialog({
+    title:"Objectif d'épargne",
+    message:'Le montant de patrimoine que tu veux atteindre. Laisse vide pour ne pas en fixer.',
+    fields:[{ name:'v', label:'Objectif (€)', value:frNum(settings().goal), inputmode:'decimal', placeholder:'ex. 50 000' }],
+    confirmLabel:'Enregistrer',
+    onConfirm: async ({ v }) => { await window.PatrimoineData.saveSettings({ goal: parseAmount(v, { allowEmpty:true }) }); }
+  }),
+  editExpenses: () => UI.dialog({
+    title:'Dépenses mensuelles',
+    message:'Tes dépenses courantes par mois. Elles servent uniquement à calculer combien de mois ton épargne de précaution couvre. Laisse vide pour retirer le calcul.',
+    fields:[{ name:'v', label:'Dépenses par mois (€)', value:frNum(settings().monthlyExpenses), inputmode:'decimal', placeholder:'ex. 1 500' }],
+    confirmLabel:'Enregistrer',
+    onConfirm: async ({ v }) => { await window.PatrimoineData.saveSettings({ monthlyExpenses: parseAmount(v, { allowEmpty:true }) }); }
+  }),
+  editCash: compteName => {
+    const cur = snap?.comptes?.[compteName]?.cash ?? 0;
+    const derive = rawCash()[compteName] == null;
+    return UI.dialog({
+      title:`Liquidités · ${compteName}`,
+      message: derive ? `Montant calculé à partir de tes opérations : ${cashExplain(compteName)}.\nSi ce n'est pas ton solde réel d'espèces, indique le bon montant : il remplacera le calcul.` : 'Montant d\'espèces disponibles sur l\'enveloppe.',
+      fields:[{ name:'v', label:'Liquidités (€)', value:frNum(cur), inputmode:'decimal', hint:'Mets 0 si tu n\'as pas d\'espèces sur cette enveloppe.' }],
+      confirmLabel:'Enregistrer',
+      onConfirm: async ({ v }) => { await window.PatrimoineData.setCash(compteName, parseAmount(v)); UI.toast('Liquidités mises à jour', 'ok'); }
+    });
   },
-  editCash: async compte => {
-    const cur = snap?.comptes?.[compte]?.cash ?? 0;
-    const v = prompt(`Liquidités sur ${compte} (en €)\n\nMontant actuel : ${eur(cur)}\nMets 0 pour les retirer du patrimoine.`, String(cur).replace('.', ','));
-    if (v === null) return;
-    try { await window.PatrimoineData.setCash(compte, window.PatrimoineCore.num(v)); state.report = null; }
-    catch (e) { state.report = { error:e.message }; }
-    render();
+  resetCash: compteName => UI.confirm(
+    `Recalculer les liquidités de ${compteName} ?`,
+    'Le montant que tu as fixé est retiré : les liquidités seront de nouveau calculées à partir de tes opérations.',
+    { confirmLabel:'Recalculer', onConfirm: () => window.PatrimoineData.clearCash(compteName) }
+  ),
+  delCash: compteName => UI.confirm(
+    `Retirer les liquidités de ${compteName} ?`,
+    'Elles sont mises à 0 € dans le patrimoine. Tes opérations ne sont pas modifiées, et tu pourras les recalculer à tout moment.',
+    { confirmLabel:'Mettre à 0 €', danger:true, onConfirm: () => window.PatrimoineData.setCash(compteName, 0) }
+  ),
+  editBalance: compteName => {
+    const c = snap?.comptes?.[compteName];
+    return UI.dialog({
+      title:`Solde · ${compteName}`,
+      fields:[
+        { name:'solde', label:'Solde actuel (€)', value:frNum(c?.balance ?? ''), inputmode:'decimal', placeholder:'ex. 6 681,68' },
+        { name:'taux', label:'Taux annuel (%) — facultatif', value:frNum(c?.taux ?? ''), inputmode:'decimal', placeholder:'ex. 2,4' }
+      ],
+      confirmLabel:'Enregistrer',
+      onConfirm: async ({ solde, taux }) => {
+        const t = String(taux).trim() === '' ? null : window.PatrimoineCore.num(taux);
+        if (String(taux).trim() !== '' && (t == null || t < 0 || t > 20)) throw new Error('Taux invalide : entre 0 et 20 %.');
+        await window.PatrimoineData.updateBalance(compteName, parseAmount(solde), t);
+        UI.toast(`Solde de ${compteName} enregistré`, 'ok');
+      }
+    });
   },
-  delCash: async compte => {
-    if (!confirm(`Retirer les liquidités de ${compte} du patrimoine ?\n\nElles sont remises à 0 €. Tes opérations, elles, ne sont pas touchées.`)) return;
-    try { await window.PatrimoineData.setCash(compte, 0); state.report = null; }
-    catch (e) { state.report = { error:e.message }; }
-    render();
+  delBalance: async compteName => {
+    const ok = await UI.confirm(`Supprimer le solde de ${compteName} ?`, 'Le solde est retiré du patrimoine. Tu pourras le ressaisir à tout moment.',
+      { confirmLabel:'Supprimer', danger:true, onConfirm: () => window.PatrimoineData.removeBalance(compteName) });
+    if (ok && state.view === 'c:' + compteName && !snap?.comptes?.[compteName]) set({ view:'global' });
   },
   editPos: arg => {
-    // référence par index : un libellé contenant « | » cassait le découpage
     const line = (snap?.lines || [])[Number(arg)];
     if (!line) return;
     const { name, compte } = line;
-    // date d'achat = première opération d'achat connue pour cette ligne
-    const ops = (snap?.operations || []).filter(o => o.compte === compte && o.type === 'Achat' &&
+    // date d'achat = plus ancienne opération d'achat connue pour cette ligne
+    const buys = (snap?.operations || []).filter(o => o.compte === compte && o.type === 'Achat' &&
       (o.libelle === name || (o.ticker && o.ticker === line.ticker) || (o.isin && o.isin === line.isin)));
-    const buyDate = ops.length ? ops[ops.length - 1].date : '';
+    const buyDate = buys.reduce((min, o) => (!min || o.date < min) ? o.date : min, '');
+    formEpoch++;
     set({ editing:{ ...line, buyDate }, formCompte:compte, modalTab:'saisie', modal:true, report:null });
   },
   delPos: async arg => {
     const line = (snap?.lines || [])[Number(arg)];
     if (!line) return;
     const { name, compte } = line;
-    const nOps = window.PatrimoineData.countPositionOperations?.(name, compte) || 0;
-    const msg = nOps
-      ? `Supprimer « ${name} » ?\n\nCette ligne provient de ${nOps} opération(s) d'achat/vente : elles seront supprimées aussi, sinon la ligne réapparaîtrait.`
-      : `Supprimer la ligne « ${name} » ?`;
-    if (!confirm(msg)) return;
-    try { await window.PatrimoineData.removePosition(name, compte); state.report = null; state.editing = null; }
-    catch (e) { state.report = { error:e.message }; }
-    render();
+    const nOps = window.PatrimoineData.countPositionOperations(name, compte);
+    const ok = await UI.confirm(
+      `Supprimer « ${name} » ?`,
+      nOps
+        ? `Cette ligne provient de ${nOps} opération(s) d'achat/vente dans ${compte} : elles seront supprimées aussi, sinon la ligne réapparaîtrait. Tes versements et dividendes sont conservés.`
+        : `La ligne est retirée de ${compte}.`,
+      { confirmLabel:'Supprimer', danger:true, onConfirm: () => window.PatrimoineData.removePosition(name, compte) }
+    );
+    if (ok) { if (state.editing?.name === name) { formEpoch++; state.editing = null; } UI.toast(`« ${name} » supprimée`, 'ok'); render(); }
+  },
+  delOp: async arg => {
+    const op = (snap?.operations || []).find(o => o.idx === Number(arg));
+    if (!op) return;
+    await UI.confirm('Supprimer cette opération ?',
+      `${op.dateFr} · ${op.compte} · ${op.type} · ${op.libelle} · ${sEur(opAmount(op))}\n\nLes montants et les lignes qui en découlent seront recalculés.`,
+      { confirmLabel:'Supprimer', danger:true, onConfirm: () => window.PatrimoineData.removeOperation(op) });
+  },
+  addOp: () => {
+    const comptes = [...new Set([...Object.keys(snap?.comptes || {}), ...BASE_COMPTES])];
+    return UI.dialog({
+      title:'Ajouter une opération',
+      message:'Versement, retrait, dividende… Le sens (entrée ou sortie) est déduit du type : saisis le montant en positif.',
+      fields:[
+        { name:'date', label:'Date', type:'date', value:new Date().toISOString().slice(0,10), max:new Date().toISOString().slice(0,10) },
+        { name:'compte', label:'Enveloppe', options:comptes, value:state.filt !== 'Tous' ? state.filt : comptes[0] },
+        { name:'type', label:'Type', options:OP_TYPES, value:'Versement' },
+        { name:'libelle', label:'Libellé (facultatif)', placeholder:'ex. Virement mensuel' },
+        { name:'montant', label:'Montant (€)', inputmode:'decimal', placeholder:'ex. 200' }
+      ],
+      confirmLabel:'Ajouter',
+      onConfirm: async v => {
+        const m = parseAmount(v.montant);
+        if (!m) throw new Error('Le montant doit être supérieur à 0.');
+        await window.PatrimoineData.addOperation({ ...v, montant:m });
+        UI.toast('Opération ajoutée', 'ok');
+      }
+    });
   },
   stop:   () => {},
-  signOut: () => window.PatrimoineAuth.signOut(),
-  authToggle: () => set({ authMode: state.authMode === 'signup' ? 'signin' : 'signup', authError:null }),
-  authForgot: async () => {
-    const email = app.querySelector('#authEmail')?.value.trim();
-    if (!email) { state.authError = 'Renseigne ton e-mail puis réessaie.'; render(); return; }
-    try { await window.PatrimoineAuth.resetPassword(email); state.authError = 'E-mail de réinitialisation envoyé.'; }
-    catch (e) { state.authError = e.message; }
-    render();
-  },
+  signOut: () => { UI.loading(app, 'Déconnexion…'); return window.PatrimoineAuth.signOut(); },
   refreshNow: async () => {
+    if (!window.PatrimoineData.liveQuotes) { UI.toast('Cotations en direct non configurées : les derniers cours connus sont utilisés.', 'info'); return; }
     conn = { ...conn, status:'connecting' }; render();
-    try { await window.PatrimoineData.refreshPerf(true); }
+    try { await window.PatrimoineData.refreshPerf(true); UI.toast('Cours actualisés', 'ok'); }
     catch (e) { conn = { status:'offline', at:conn.at, error:e.message }; render(); }
   }
 };
 
 app.addEventListener('click', e => {
   const t = e.target.closest('[data-act]');
-  if (!t) return;
+  if (!t || !app.contains(t)) return;
   const fn = ACTIONS[t.dataset.act];
-  if (fn) { e.stopPropagation(); fn(t.dataset.arg); }
+  if (fn) { e.stopPropagation(); UI.run(fn, t.dataset.arg); }
+});
+
+// clavier : Entrée / Espace sur un élément cliquable non natif
+app.addEventListener('keydown', e => {
+  if (e.key !== 'Enter' && e.key !== ' ') return;
+  const t = e.target;
+  if (t?.getAttribute?.('role') === 'button' && t.dataset.act) { e.preventDefault(); t.click(); }
 });
 
 app.addEventListener('mouseover', e => {
@@ -1988,10 +2048,17 @@ app.addEventListener('mouseover', e => {
   set({ [t.dataset.hover]: Number(t.dataset.hval) });
 });
 
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && state.modal) set({ modal:false }); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && state.modal && !document.querySelector('.pk-overlay')) { formEpoch++; set({ modal:false, editing:null }); }
+});
+
+// retour sur l'onglet : cours rafraîchis (sans forcer si récents)
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && state.user && snap) window.PatrimoineData.refreshPerf(true, false).catch(() => {});
+});
 
 render();
-whenFirebaseReady(boot);
+UI.whenReady(app, boot);
 </script>
 </body>
 </html>

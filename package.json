@@ -1,0 +1,9 @@
+{
+  "name": "patrimoine",
+  "private": true,
+  "description": "Suivi de patrimoine (PEA, CTO, assurance vie, livrets) — Firebase gratuit + Cloudflare Worker",
+  "scripts": {
+    "test": "node --test tests/core.test.mjs",
+    "deploy": "npm test && firebase deploy --only hosting,firestore:rules"
+  }
+}
