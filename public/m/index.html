@@ -755,10 +755,13 @@ function saisieForm(){
   return `
     <div>
       <div class="lbl" style="margin-bottom:8px">Enveloppe</div>
-      <div class="chips" style="flex-wrap:wrap">
+      ${ed
+        // une ligne existante reste dans son enveloppe : la changer ici créerait un doublon
+        ? `<div style="font-size:15px;font-weight:600">${esc(compteVal)}</div>`
+        : `<div class="chips" style="flex-wrap:wrap">
         ${all.map(c => `<div class="chip${c === compteVal ? ' on' : ''}" data-act="formCompte" data-arg="${esc(c)}">${esc(c)}</div>`).join('')}
         <div class="chip" style="color:var(--blue)" data-act="newCompte">+ Autre</div>
-      </div>
+      </div>`}
     </div>
     <form id="posForm" novalidate data-epoch="${formEpoch}">
       ${solde ? `
@@ -1108,11 +1111,40 @@ const ACTIONS = {
   signOut: () => { UI.loading(app, 'Déconnexion…'); return window.PatrimoineAuth.signOut(); }
 };
 
+function dispatch(t){
+  const fn = ACTIONS[t.dataset.act];
+  if (fn) UI.run(fn, t.dataset.arg);
+}
+
+/* Un rafraîchissement de l'écran entre l'appui et le relâchement (survol d'un
+   graphique, cotation qui arrive…) remplace l'élément visé : le navigateur
+   n'émet alors aucun « click » et le bouton semble ne pas répondre. On retient
+   l'action visée à l'appui et on l'exécute au relâchement si le click manque. */
+const actSig = t => t ? t.dataset.act + ' ' + (t.dataset.arg ?? '') : null;
+let pressedSig = null, clickSeen = false;
+app.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  pressedSig = actSig(e.target.closest('[data-act]'));
+  clickSeen = false;
+}, true);
+app.addEventListener('pointerup', e => {
+  const want = pressedSig;
+  pressedSig = null;
+  if (!want) return;
+  const x = e.clientX, y = e.clientY;
+  setTimeout(() => {
+    if (clickSeen) return;
+    const t = document.elementFromPoint(x, y)?.closest('[data-act]');
+    if (t && app.contains(t) && actSig(t) === want) dispatch(t);
+  }, 0);
+}, true);
+
 app.addEventListener('click', e => {
+  clickSeen = true;
   const t = e.target.closest('[data-act]');
   if (!t || !app.contains(t)) return;
-  const fn = ACTIONS[t.dataset.act];
-  if (fn) { e.stopPropagation(); UI.run(fn, t.dataset.arg); }
+  e.stopPropagation();
+  dispatch(t);
 });
 
 // bouton retour Android / Échap : ferme la feuille au lieu de quitter l'app

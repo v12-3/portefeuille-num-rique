@@ -5,7 +5,7 @@
    le SDK Firestore gère lui-même son cache hors-ligne (IndexedDB). */
 'use strict';
 
-const CACHE = 'patrimoine-shell-v13';
+const CACHE = 'patrimoine-shell-v14';
 const SHELL = [
   '/m/', '/m/index.html', '/m/manifest.webmanifest',
   '/m/icon-192.png', '/m/icon-512.png',
